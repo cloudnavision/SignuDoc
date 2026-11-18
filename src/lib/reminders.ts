@@ -1,4 +1,4 @@
-import { type Branding } from "./branding.ts";
+import { buildBranding, type Branding } from "./branding.ts";
 import {
   formatDeadline,
   isEnvelopeExpired,
@@ -12,12 +12,13 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import { type SignerLocale, t } from "./i18n.ts";
 import {
   manualNudgeResponseSchema,
   type EnvelopeRecord,
 } from "./schemas/envelope.ts";
 import { type SignerRecord } from "./schemas/signer.ts";
-import { getBranding } from "./settings.ts";
+import { getSettings } from "./settings.ts";
 import {
   lockEnvelopeAuditChain,
   recordAuditEvent,
@@ -242,42 +243,60 @@ function buildReminderEmail(input: {
   envelopeTitle: string;
   expiresAt?: number | null;
   kind: ReminderRequest["kind"];
+  /** The signer's language: the install's signer language. */
+  locale: SignerLocale;
   senderName: string;
   signerEmail: string;
   signerName: string;
   signingUrl: string;
 }) {
+  const { locale } = input;
   const automatic = input.kind === "automatic";
-  const subject = automatic
-    ? `Reminder: ${input.senderName} is waiting for your signature on "${input.envelopeTitle}"`
-    : `${input.senderName} sent you a reminder to sign "${input.envelopeTitle}"`;
-  const introLine = automatic
-    ? `${input.senderName} is still waiting for your signature on "${input.envelopeTitle}", sent through ${input.branding.productName}.`
-    : `${input.senderName} sent you a reminder to sign "${input.envelopeTitle}" through ${input.branding.productName}.`;
-  const deadlineLine = buildDeadlineLine(input.expiresAt);
+  const subject = t(
+    locale,
+    automatic ? "email.reminder.auto.subject" : "email.reminder.manual.subject",
+    { sender: input.senderName, title: input.envelopeTitle },
+  );
+  const introLine = t(
+    locale,
+    automatic ? "email.reminder.auto.intro" : "email.reminder.manual.intro",
+    {
+      sender: input.senderName,
+      title: input.envelopeTitle,
+      product: input.branding.productName,
+    },
+  );
+  const greeting = t(locale, "email.greeting", { name: input.signerName });
+  const cta = t(locale, "email.cta");
+  const deadlineLine = buildDeadlineLine(input.expiresAt, locale);
+  const noAccount = t(locale, "email.noAccount", {
+    product: input.branding.productName,
+  });
+  const newestLink = t(locale, "email.newestLink");
   const textBody = [
-    `Hi ${input.signerName},`,
+    greeting,
     "",
     introLine,
     "",
-    "Review and sign the document here:",
+    cta,
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",
-    `You do not need a ${input.branding.productName} account to sign.`,
-    "If you receive a newer invitation or reminder link, use the newest one.",
+    noAccount,
+    newestLink,
   ].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
+    `<p>${escapeHtml(greeting)}</p>`,
     `<p>${escapeHtml(introLine)}</p>`,
-    `<p><a href="${escapeHtml(input.signingUrl)}">Review and sign the document</a></p>`,
+    `<p><a href="${escapeHtml(input.signingUrl)}">${escapeHtml(cta)}</a></p>`,
     deadlineLine ? `<p>${escapeHtml(deadlineLine)}</p>` : "",
-    `<p>You do not need a ${escapeHtml(input.branding.productName)} account to sign.</p>`,
-    "<p>If you receive a newer invitation or reminder link, use the newest one.</p>",
+    `<p>${escapeHtml(noAccount)}</p>`,
+    `<p>${escapeHtml(newestLink)}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
       htmlBody,
+      locale,
       textBody,
     },
     input.branding,
@@ -557,16 +576,18 @@ async function deliverReminder(
 ): Promise<void> {
   const template = kind === "automatic" ? "automatic_reminder" : "manual_nudge";
   let reminderMessageId: string | undefined;
+  const settings = await getSettings();
 
   try {
     reminderMessageId = (
       await emailService.send(
         buildReminderEmail({
-          branding: await getBranding(),
+          branding: buildBranding(settings),
           envelopeId: persisted.envelopeId,
           envelopeTitle: persisted.envelopeTitle,
           expiresAt: persisted.envelopeExpiresAt,
           kind,
+          locale: settings.signerLanguage,
           senderName: persisted.senderName,
           signerEmail: persisted.signerEmail,
           signerName: persisted.signerName,

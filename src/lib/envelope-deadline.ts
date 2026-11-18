@@ -93,18 +93,31 @@ export function nextSignerLinkExpiresAt(
     : turnStartsAt + SIGNING_LINK_TTL_SECONDS;
 }
 
-const deadlineFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  month: "long",
-  timeZone: "UTC",
-  year: "numeric",
-});
+const deadlineFormatters = {
+  en: new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }),
+  es: new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }),
+} as const;
 
-/** "December 12, 2026 at 9:20 PM UTC" */
-export function formatDeadline(unixTimestamp: number): string {
-  return `${deadlineFormatter
+/** "December 12, 2026 at 9:20 PM UTC", or the same date in Spanish. */
+export function formatDeadline(
+  unixTimestamp: number,
+  locale: keyof typeof deadlineFormatters = "en",
+): string {
+  return `${deadlineFormatters[locale]
     .format(new Date(unixTimestamp * 1000))
     .replace(/[  ]/g, " ")} UTC`;
 }

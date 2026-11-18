@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 
-import { type Branding } from "./branding.ts";
+import { buildBranding, type Branding } from "./branding.ts";
 import { removeUnclaimedEnvelopeCertificates } from "./certificate-cleanup.ts";
+import { t, type SignerLocale } from "./i18n.ts";
 import {
   type DbExecutor,
   type DbPool,
@@ -70,7 +71,7 @@ import {
   parseSignatureMeaning,
   signatureMeaningLabel,
 } from "./part11.ts";
-import { getBranding, readStoredSettings } from "./settings.ts";
+import { getSettings, readStoredSettings } from "./settings.ts";
 import { type SignatureMeaning } from "./types/domain.ts";
 import { importPdfDocument } from "./services/document-import.ts";
 import {
@@ -1652,30 +1653,35 @@ function buildVoidNotificationEmail(input: {
   branding: Branding;
   envelopeId: string;
   envelopeTitle: string;
+  locale: SignerLocale;
   senderName: string;
   signerEmail: string;
   signerName: string;
   /** The signer had already signed, so the document they signed won't be completed. */
   signerSigned?: boolean;
 }) {
-  const subject = `"${input.envelopeTitle}" was voided by ${input.senderName}`;
-  const outcome = input.signerSigned
-    ? "The signing process has been canceled, so the document you signed will not be completed. No further action is needed."
-    : "The signing process has been canceled. No further action is needed.";
-  const textBody = [
-    `Hi ${input.signerName},`,
-    "",
-    `${input.senderName} voided "${input.envelopeTitle}" in ${input.branding.productName}.`,
-    outcome,
-  ].join("\n");
+  const { locale } = input;
+  const greeting = t(locale, "email.greeting", { name: input.signerName });
+  const subject = t(locale, "email.voided.subject", {
+    sender: input.senderName,
+    title: input.envelopeTitle,
+  });
+  const bodyLine = t(locale, "email.voided.body", {
+    sender: input.senderName,
+    title: input.envelopeTitle,
+    product: input.branding.productName,
+  });
+  const note = input.signerSigned ? (locale === "en" ? "The signing process has been canceled, so the document you signed will not be completed. No further action is needed." : "El proceso de firma se ha cancelado, por lo que el documento que firmaste no se completará. No tienes que hacer nada más.") : t(locale, "email.voided.note");
+  const textBody = [greeting, "", bodyLine, note].join("\n");
   const htmlBody = [
-    `<p>Hi ${escapeHtml(input.signerName)},</p>`,
-    `<p>${escapeHtml(input.senderName)} voided &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; in ${escapeHtml(input.branding.productName)}.</p>`,
-    `<p>${escapeHtml(outcome)}</p>`,
+    `<p>${escapeHtml(greeting)}</p>`,
+    `<p>${escapeHtml(bodyLine)}</p>`,
+    `<p>${escapeHtml(note)}</p>`,
   ].join("");
   const legalFooter = withUserEmailLegalFooter(
     {
       htmlBody,
+      locale,
       textBody,
     },
     input.branding,
@@ -3132,13 +3138,15 @@ export async function sendDraftEnvelope(
   let branding: Branding;
 
   try {
-    branding = await getBranding();
+    const settings = await getSettings();
+    branding = buildBranding(settings);
     invitationMessageIds.set(
       firstSigner.id,
       (
         await emailService.send(
           buildSigningInvitationEmail({
             branding,
+            locale: settings.signerLanguage,
             envelopeTitle: envelope.title,
             expiresAt,
             senderName: input.senderName,
@@ -3452,7 +3460,8 @@ export async function correctSentEnvelopeSigner(
   // Read settings before taking the envelope lock: an uncached read inside the
   // transaction borrows a second pool connection, and overlapping corrections
   // holding the others while they wait on the lock would starve it.
-  const branding = await getBranding();
+  const settings = await getSettings();
+  const branding = buildBranding(settings);
   const emailAddresses = emailService ? null : await resolveEmailAddresses();
 
   return withTransaction(async (tx) => {
@@ -3689,6 +3698,7 @@ export async function correctSentEnvelopeSigner(
             branding,
             envelopeTitle: envelope.title,
             expiresAt: envelope.expiresAt,
+            locale: settings.signerLanguage,
             senderName: context.senderName,
             signerEmail: nextEmail,
             signerName: nextName,
@@ -4116,7 +4126,8 @@ async function voidSentEnvelopeOnce(
     throw error;
   });
 
-  const branding = await getBranding().catch(() => null);
+  const settings = await getSettings().catch(() => null);
+  const branding = settings === null ? null : buildBranding(settings);
 
   await Promise.all(
     invitedSigners.map(async (signer) => {
@@ -4132,6 +4143,7 @@ async function voidSentEnvelopeOnce(
             branding,
             envelopeId,
             envelopeTitle: envelope.title,
+            locale: settings?.signerLanguage ?? "en",
             senderName: input.senderName,
             signerEmail: signer.email,
             signerName: signer.name,

@@ -1,10 +1,17 @@
 import { SIGNUDOC_NAME, type Branding } from "../branding.ts";
+import { type SignerLocale, t } from "../i18n.ts";
 import { getEnv, type EnvSource } from "../utils/env.ts";
 import { escapeHtml } from "../utils/html.ts";
 import { requireConfigValue } from "./service-config.ts";
 
 type EmailBodyContent = {
   htmlBody: string;
+  /**
+   * The language the footer's labels are written in: the install's signer
+   * language for mail to a signer, or nothing for the English the
+   * dashboard's own mail stays in.
+   */
+  locale?: SignerLocale;
   textBody: string;
 };
 
@@ -15,15 +22,22 @@ type FooterLink = {
 
 // Links may be pages on this site ("/terms") or the organization's own
 // absolute URLs. Either way the email gets an absolute URL.
-function buildFooterLinks(branding: Branding, env: EnvSource): FooterLink[] {
+function buildFooterLinks(
+  branding: Branding,
+  locale: SignerLocale,
+  env: EnvSource,
+): FooterLink[] {
   const candidates: Array<[label: string, url: string | null]> = [
-    ["Terms of Service", branding.termsUrl],
+    [t(locale, "email.footer.terms"), branding.termsUrl],
     // Without the organization's own policy, the notice built from the
     // install's settings.
     branding.privacyUrl || branding.hosted
-      ? ["Privacy Policy", branding.privacyUrl]
-      : ["Privacy notice", getEnv(env).appUrl ? "/signer-privacy" : null],
-    ["Contact", branding.contactUrl],
+      ? [t(locale, "email.footer.privacyPolicy"), branding.privacyUrl]
+      : [
+          t(locale, "email.footer.privacyNotice"),
+          getEnv(env).appUrl ? "/signer-privacy" : null,
+        ],
+    [t(locale, "email.footer.contact"), branding.contactUrl],
   ];
   const links = candidates.filter((candidate): candidate is [string, string] =>
     Boolean(candidate[1]),
@@ -75,27 +89,44 @@ export function withUserEmailLegalFooter(
   branding: Branding,
   env: EnvSource = process.env,
 ): EmailBodyContent {
-  const links = buildFooterLinks(branding, env);
+  const locale = input.locale ?? "en";
+  const links = buildFooterLinks(branding, locale, env);
   const logoHeader = buildLogoHeader(branding, env);
   const textLines: string[] = [];
   const htmlLines: string[] = [];
 
   for (const link of links) {
     textLines.push("", `${link.label}:`, link.url);
-    htmlLines.push(`<a href="${escapeHtml(link.url)}">${link.label}</a>`);
+    htmlLines.push(
+      `<a href="${escapeHtml(link.url)}">${escapeHtml(link.label)}</a>`,
+    );
   }
 
   if (!branding.hosted) {
     if (branding.supportAddress) {
-      textLines.push("", `Questions? Contact ${branding.supportAddress}.`);
+      // The sentence is one template, split around the address so the HTML
+      // part can make just the address a link.
+      const [lead, tail] = t(locale, "email.footer.questions").split(
+        "{address}",
+      );
+
+      textLines.push(
+        "",
+        t(locale, "email.footer.questions", {
+          address: branding.supportAddress,
+        }),
+      );
       htmlLines.push(
-        `Questions? Contact <a href="mailto:${escapeHtml(branding.supportAddress)}">${escapeHtml(branding.supportAddress)}</a>.`,
+        `${escapeHtml(lead ?? "")}<a href="mailto:${escapeHtml(branding.supportAddress)}">${escapeHtml(branding.supportAddress)}</a>${escapeHtml(tail ?? "")}`,
       );
     }
 
     const sentBy = branding.organizationName
-      ? `Sent by ${branding.organizationName} using ${SIGNUDOC_NAME}.`
-      : `Sent using ${SIGNUDOC_NAME}.`;
+      ? t(locale, "email.footer.sentByOrg", {
+          organization: branding.organizationName,
+          product: SIGNUDOC_NAME,
+        })
+      : t(locale, "email.footer.sentByProduct", { product: SIGNUDOC_NAME });
 
     textLines.push("", sentBy);
     htmlLines.push(escapeHtml(sentBy));
