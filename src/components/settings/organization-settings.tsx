@@ -94,6 +94,16 @@ const signupModeOptions: Array<{
   },
 ];
 
+// The dashboard stays in English either way; this is only what people who
+// are asked to sign see.
+const signerLanguageOptions: Array<{
+  label: string;
+  value: OrganizationSettingsView["signerLanguage"];
+}> = [
+  { label: "English", value: "en" },
+  { label: "Español", value: "es" },
+];
+
 export function OrganizationSettings({
   initialSettings,
 }: OrganizationSettingsProps) {
@@ -146,6 +156,17 @@ export function OrganizationSettings({
     setFeedback(null);
   }
 
+  function handleSignerLanguageChange(
+    signerLanguage: OrganizationSettingsView["signerLanguage"],
+  ) {
+    setValues((currentValues) => ({ ...currentValues, signerLanguage }));
+    setErrors((currentErrors) => ({
+      ...currentErrors,
+      signerLanguage: undefined,
+    }));
+    setFeedback(null);
+  }
+
   /**
    * Whether saving puts the administrator's own words in place of what
    * signers read now, which needs them to agree to the notice first. Going
@@ -194,6 +215,7 @@ export function OrganizationSettings({
           privacyUrl: values.privacyUrl,
           retentionDays: values.retentionDays,
           senderAddress: values.senderAddress,
+          signerLanguage: values.signerLanguage,
           signupMode: values.signupMode,
           supportAddress: values.supportAddress,
           termsUrl: values.termsUrl,
@@ -285,6 +307,37 @@ export function OrganizationSettings({
               }
             />
           ) : null}
+
+          <fieldset className="space-y-4 border-t border-(--border) pt-8">
+            <legend className="float-left mb-4 w-full text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
+              Language signers see
+            </legend>
+            <p className="clear-both max-w-2xl text-sm leading-6 text-(--secondary)">
+              The signing pages, the notices a signer is shown and the emails a
+              signer receive. The dashboard stays in English.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {signerLanguageOptions.map((option) => (
+                <label
+                  className="flex cursor-pointer items-center gap-3 rounded-2xl bg-(--surface) px-4 py-3.5 ring-2 ring-transparent transition has-[:checked]:bg-(--accent-softer) has-[:checked]:ring-(--accent)"
+                  key={option.value}
+                >
+                  <input
+                    checked={values.signerLanguage === option.value}
+                    className="size-4 accent-(--accent)"
+                    disabled={isSaving}
+                    name="signer-language"
+                    onChange={() => handleSignerLanguageChange(option.value)}
+                    type="radio"
+                    value={option.value}
+                  />
+                  <span className="text-sm font-bold text-(--fg)">
+                    {option.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <fieldset className="space-y-4 border-t border-(--border) pt-8">
             <legend className="float-left mb-4 w-full text-lg font-extrabold tracking-[-0.02em] text-(--fg)">
