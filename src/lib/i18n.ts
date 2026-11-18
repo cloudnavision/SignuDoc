@@ -181,6 +181,10 @@ export const en = {
   "email.text.certificateLabel": "Certificate",
   "email.text.redactedCertificateLabel": "Redacted certificate",
   "email.text.signedPdfLabel": "Signed PDF",
+  "email.voided.body": "{sender} voided \u201c{title}\u201d in {product}.",
+  "email.voided.note":
+    "The signing process has been canceled. No further action is needed.",
+  "email.voided.subject": "\u201c{title}\u201d was voided by {sender}",
   "finishDialog.advanced":
     "This document asks for an advanced electronic signature, made with a certificate in your own name.",
   "finishDialog.back": "Back",
@@ -548,6 +552,10 @@ export const es: Record<SignerMessageKey, string> = {
   "email.text.certificateLabel": "Certificado",
   "email.text.redactedCertificateLabel": "Certificado redactado",
   "email.text.signedPdfLabel": "PDF firmado",
+  "email.voided.body": "{sender} anuló «{title}» en {product}.",
+  "email.voided.note":
+    "El proceso de firma fue cancelado. No necesita hacer nada más.",
+  "email.voided.subject": "«{title}» fue anulado por {sender}",
   "finishDialog.advanced":
     "Este documento pide una firma electrónica avanzada, hecha con un certificado a su nombre.",
   "finishDialog.back": "Volver",
