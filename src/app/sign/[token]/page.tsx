@@ -2,11 +2,13 @@ import { cookies, headers } from "next/headers";
 
 import { SigningShell } from "@/components/signing/signing-shell";
 import { getDb } from "@/lib/db/connection";
+import { type SignerLocale } from "@/lib/i18n";
 import {
   getClientIpAddress,
   getRequestUserAgent,
 } from "@/lib/security/request";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
+import { getSettings } from "@/lib/settings";
 import { verifiedMethodsFromCookies } from "@/lib/signer-checks";
 import {
   SigningAccessError,
@@ -42,11 +44,15 @@ export default async function SignPage({
   let record: Awaited<ReturnType<typeof getSigningPayloadForToken>> | null =
     null;
   let verification: SigningVerificationState | null = null;
+  // English unless the settings read itself fails: the page below still
+  // says what happened to the link, in the language it has.
+  let locale: SignerLocale = "en";
 
   try {
     const requestHeaders = await headers();
     const cookieStore = await cookies();
 
+    locale = (await getSettings()).signerLanguage;
     record = await getSigningPayloadForToken(token, {
       database: getDb(),
       requestMeta: {
@@ -72,6 +78,7 @@ export default async function SignPage({
     <SigningShell
       initialState={initialState}
       key={token}
+      locale={locale}
       record={record ?? undefined}
       signatureProblem={signatureProblem}
       token={token}
