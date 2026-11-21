@@ -141,7 +141,7 @@ test("a Spanish signer gets the footer in Spanish", () => {
       "Hello",
       "",
       "Aviso de privacidad:",
-      "https://sign.acme.com/signer-privacy",
+      "https://sign.acme.com/signer-privacy?language=es",
       "",
       "¿Preguntas? Escriba a ayuda@acme.com.",
       "",

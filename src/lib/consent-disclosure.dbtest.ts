@@ -140,7 +140,7 @@ test("an administrator's own disclosure is shown, agreed to and kept, filled in"
 
   await recordSignerConsent(
     token,
-    { disclosureVersion: payload.disclosure.version },
+    { language: "en", disclosureVersion: payload.disclosure.version },
     { database },
   );
 
@@ -183,7 +183,7 @@ test("a change to the disclosure shows at once, and the older version is refused
   await assert.rejects(
     recordSignerConsent(
       token,
-      { disclosureVersion: first.disclosure.version },
+      { language: "en", disclosureVersion: first.disclosure.version },
       { database },
     ),
     (error) => {
@@ -195,7 +195,7 @@ test("a change to the disclosure shows at once, and the older version is refused
 
   await recordSignerConsent(
     token,
-    { disclosureVersion: second.disclosure.version },
+    { language: "en", disclosureVersion: second.disclosure.version },
     { database },
   );
 
@@ -229,7 +229,7 @@ test("a change to the support address after the page loaded is refused too", asy
     await assert.rejects(
       recordSignerConsent(
         token,
-        { disclosureVersion: before.disclosure.version },
+        { language: "en", disclosureVersion: before.disclosure.version },
         { database },
       ),
       SigningMutationError,
@@ -256,7 +256,10 @@ test("with no disclosure of its own the built-in one is used and no text is kept
 
   await recordSignerConsent(
     token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
 

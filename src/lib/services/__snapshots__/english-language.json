@@ -1,0 +1,10 @@
+{
+  "invitation": {
+    "htmlBody": "<p>Hi Alex Signer,</p><p>Sam Sender sent you &ldquo;Agreement &amp; schedule&rdquo; through SignuDoc.</p><p><a href=\"https://sign.example.test/sign/example\">Review and sign the document</a></p><p>This request expires on January 15, 2027 at 8:00 AM UTC.</p><p>You do not need a SignuDoc account to sign.</p><p>If you receive a newer invitation or reminder link, use the newest one.</p><hr style=\"margin:24px 0;border:none;border-top:1px solid #e2e2e2;\" /><p>Sent using SignuDoc.</p>",
+    "subject": "Sam Sender requested your signature on \"Agreement & schedule\"",
+    "template": "signing_invitation",
+    "textBody": "Hi Alex Signer,\n\nSam Sender sent you \"Agreement & schedule\" through SignuDoc.\n\nReview and sign the document here:\nhttps://sign.example.test/sign/example\n\nThis request expires on January 15, 2027 at 8:00 AM UTC.\n\nYou do not need a SignuDoc account to sign.\nIf you receive a newer invitation or reminder link, use the newest one.\n\nSent using SignuDoc.",
+    "to": "alex@example.test"
+  },
+  "certificate": "SignuDoc Certificate of Completion Envelope ID: envelope-english Document title: Agreement Source PDF: source.pdf Source document hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa Audit trail fingerprint (SHA-256): 6c7060f2f3bd01fcfa4f3d81995c669a0c3c414ea77455e3ccb92660b67aaee5 Status: Completed Completed at: 2027-01-15T08:01:40 UTC Signers 1. Alex Signer <alex@example.test> | Signed at 2027-01-15T08:01:40 UTC Audit events 2027-01-15T08:01:40 UTC | completed | system How to check this record The signed document and this certificate are each sealed with a digital signature. A PDF reader shows the seal as valid only if the file has not changed since it was sealed. The SHA-256 values above can also be checked on this site's Verify page."
+}

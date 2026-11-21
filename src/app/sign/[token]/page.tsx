@@ -8,7 +8,7 @@ import {
   getRequestUserAgent,
 } from "@/lib/security/request";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
-import { getSettings } from "@/lib/settings";
+import { getSigningLanguageForToken } from "@/lib/signing";
 import { verifiedMethodsFromCookies } from "@/lib/signer-checks";
 import {
   SigningAccessError,
@@ -44,7 +44,7 @@ export default async function SignPage({
   let record: Awaited<ReturnType<typeof getSigningPayloadForToken>> | null =
     null;
   let verification: SigningVerificationState | null = null;
-  // English unless the settings read itself fails: the page below still
+  // English if the stored language cannot be read: the page below still
   // says what happened to the link, in the language it has.
   let locale: SignerLocale = "en";
 
@@ -52,7 +52,7 @@ export default async function SignPage({
     const requestHeaders = await headers();
     const cookieStore = await cookies();
 
-    locale = (await getSettings()).signerLanguage;
+    locale = await getSigningLanguageForToken(token);
     record = await getSigningPayloadForToken(token, {
       database: getDb(),
       requestMeta: {

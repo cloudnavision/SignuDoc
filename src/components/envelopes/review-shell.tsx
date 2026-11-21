@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  SIGNER_LANGUAGES,
+  LANGUAGE_NAMES,
+  type SignerLocale,
+} from "@/lib/i18n";
 import { useEffect, useRef, useState } from "react";
 
 import { DocumentThumbnail } from "@/components/shared/document-thumbnail";
@@ -92,6 +97,7 @@ export function ReviewShell({
   initialState,
   record,
 }: ReviewShellProps) {
+  const [language, setLanguage] = useState<SignerLocale | "">("");
   const [deadlineDays, setDeadlineDays] = useState<number>(
     DEFAULT_ENVELOPE_DEADLINE_DAYS,
   );
@@ -146,6 +152,7 @@ export function ReviewShell({
     try {
       const response = await fetch(`/api/envelopes/${envelopeId}/send`, {
         body: JSON.stringify({
+          language: language || undefined,
           expiresInDays: deadlineDays,
           permittedUseConfirmed: true,
           reminderIntervalDays: reminderDays,
@@ -392,6 +399,28 @@ export function ReviewShell({
                 : "After you send, Signer 1 will receive an email with a link to sign. Each signer is notified in order after the previous signer completes."}
             </p>
 
+            <label className="mt-4 grid gap-1.5">
+              <span className="text-sm font-semibold">
+                Certificate language
+              </span>
+              <select
+                className="field-input"
+                value={language}
+                disabled={sendPhase === "sending" || Boolean(notice)}
+                onChange={(event) =>
+                  setLanguage(event.target.value as SignerLocale | "")
+                }
+              >
+                <option value="">
+                  Install default ({LANGUAGE_NAMES[record.defaultLanguage]})
+                </option>
+                {SIGNER_LANGUAGES.map((code) => (
+                  <option key={code} value={code}>
+                    {LANGUAGE_NAMES[code]}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="well mt-4 p-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1.5">

@@ -161,6 +161,7 @@ type CreateDraftEnvelopeInput = {
 };
 
 type SendDraftEnvelopeInput = {
+  language?: SignerLocale;
   /** The API key that sent it, recorded in the audit trail. */
   apiKeyId?: string | null;
   /**
@@ -376,6 +377,7 @@ export type ReviewSignerSummary = {
 };
 
 export type ReviewEnvelopeData = {
+  defaultLanguage: SignerLocale;
   canSend: boolean;
   /**
    * The install's signing provider, when the sender may choose signatures
@@ -395,6 +397,7 @@ export type ReviewEnvelopeData = {
 };
 
 export type DraftSignerStepSigner = {
+  language?: SignerLocale | null;
   email: string;
   /** Set on the signers step only. */
   hasAccessCode?: boolean;
@@ -409,6 +412,7 @@ export type DraftSignerStepSigner = {
 };
 
 export type DraftSignerStepData = {
+  defaultLanguage: SignerLocale;
   copyRecipients: readonly CopyRecipientRecord[];
   envelopeId: string;
   /** The most signers this install allows on one envelope. */
@@ -994,9 +998,9 @@ export async function copyEnvelopeToDraft(
               access_code_hash,
               require_email_code,
               signature_meaning,
-              signing_step
+              signing_step, language
             ) VALUES (
-              $1, $2, $3, $4, $5, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, $6, $7, $8, $9, $10, $11
+              $1, $2, $3, $4, $5, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, $6, $7, $8, $9, $10, $11, $12
             )
           `,
           [
@@ -1011,6 +1015,7 @@ export async function copyEnvelopeToDraft(
             checks.get(signer.id)?.requireEmailCode ?? false,
             null,
             signingStepOf(signer),
+            signer.language ?? null,
           ],
         );
       }
@@ -1206,6 +1211,7 @@ async function getEnvelopeByIdForUser(
         user_id AS "userId",
         title,
         status,
+        language,
         source_pdf_key AS "sourcePdfKey",
         source_pdf_filename AS "sourcePdfFilename",
         source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -1251,6 +1257,7 @@ async function listSignersForEnvelopeIds(
         envelope_id AS "envelopeId",
         name,
         email,
+        language,
         sign_order AS "signOrder",
         signing_step AS "signingStep",
         status,
@@ -1671,7 +1678,10 @@ function buildVoidNotificationEmail(input: {
     title: input.envelopeTitle,
     product: input.branding.productName,
   });
-  const note = input.signerSigned ? (locale === "en" ? "The signing process has been canceled, so the document you signed will not be completed. No further action is needed." : "El proceso de firma se ha cancelado, por lo que el documento que firmaste no se completará. No tienes que hacer nada más.") : t(locale, "email.voided.note");
+  const note = t(
+    locale,
+    input.signerSigned ? "email.voided.signedNote" : "email.voided.note",
+  );
   const textBody = [greeting, "", bodyLine, note].join("\n");
   const htmlBody = [
     `<p>${escapeHtml(greeting)}</p>`,
@@ -2000,6 +2010,7 @@ async function listEnvelopes(
         user_id AS "userId",
         title,
         status,
+        language,
         source_pdf_key AS "sourcePdfKey",
         source_pdf_filename AS "sourcePdfFilename",
         source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -2259,10 +2270,13 @@ export async function getDraftSignerStepDataForUser(
   return {
     copyRecipients: await listCopyRecipientsForEnvelopeId(envelopeId, database),
     envelopeId,
+    defaultLanguage:
+      (await readStoredSettings(database))?.signerLanguage ?? "en",
     maxSigners: getMaxSignersPerEnvelope(),
     part11Mode: (await readStoredSettings(database))?.part11Mode ?? false,
     signers: (await listSignersForEnvelopeId(envelopeId, database)).map(
       (signer) => ({
+        language: signer.language ?? null,
         email: signer.email,
         hasAccessCode: checks.get(signer.id)?.hasAccessCode ?? false,
         id: signer.id,
@@ -2513,6 +2527,8 @@ export async function getReviewEnvelopeDataForUser(
     : false;
 
   return {
+    defaultLanguage:
+      (await readStoredSettings(database))?.signerLanguage ?? "en",
     canSend: !isEmpty && !missingSignatureSigner && !choiceProblem,
     signingProvider: provider && !part11Mode ? { name: provider.name } : null,
     copyRecipients,
@@ -2665,6 +2681,8 @@ export async function sendDraftEnvelope(
 
   const checkedParties = await readDraftParties(envelopeId, database);
   const { fields, signers } = checkedParties;
+  const defaultLanguage =
+    (await readStoredSettings(database))?.signerLanguage ?? "en";
 
   // The transaction below refuses a draft whose parties changed after this
   // read, so the people checked here are the people the invitation reaches.
@@ -2854,7 +2872,11 @@ export async function sendDraftEnvelope(
     signers.map((signer) => {
       const account = part11SignerAccounts.get(signer.id);
 
-      return account ? { ...signer, name: account.name } : signer;
+      return {
+        ...signer,
+        language: signer.language ?? defaultLanguage,
+        ...(account ? { name: account.name } : {}),
+      };
     }),
   );
   const firstSigner = firstSigners[0];
@@ -2903,7 +2925,8 @@ export async function sendDraftEnvelope(
             updated_at = $2,
             expires_at = $5,
             expiry_notified_at = NULL,
-            reminder_interval_days = $6
+            reminder_interval_days = $6,
+            language = $7
           WHERE id = $3
             AND user_id = $4
             AND status = 'draft'
@@ -2915,6 +2938,7 @@ export async function sendDraftEnvelope(
           userId,
           expiresAt,
           input.reminderIntervalDays ?? null,
+          input.language ?? envelope.language ?? defaultLanguage,
         ],
       );
 
@@ -2944,6 +2968,11 @@ export async function sendDraftEnvelope(
       // Access codes and emailed codes are not part of that snapshot, and
       // an embedded signer has no way to enter one. Checked again here,
       // under the same lock that a save of the signers takes.
+      await tx.query(
+        "UPDATE signers SET language = COALESCE(language, $1) WHERE envelope_id = $2",
+        [defaultLanguage, envelopeId],
+      );
+
       if (delivery === "embedded") {
         const lockedChecks = await listSignerCheckSettings(envelopeId, tx);
 
@@ -3146,7 +3175,7 @@ export async function sendDraftEnvelope(
         await emailService.send(
           buildSigningInvitationEmail({
             branding,
-            locale: settings.signerLanguage,
+            locale: firstSigner.language,
             envelopeTitle: envelope.title,
             expiresAt,
             senderName: input.senderName,
@@ -3164,6 +3193,7 @@ export async function sendDraftEnvelope(
           UPDATE envelopes
           SET
             status = 'draft',
+            language = $4,
             sent_at = NULL,
             expires_at = NULL,
             reminder_interval_days = NULL,
@@ -3175,7 +3205,7 @@ export async function sendDraftEnvelope(
             AND user_id = $3
             AND status = 'sent'
         `,
-        [envelope.updatedAt, envelopeId, userId],
+        [envelope.updatedAt, envelopeId, userId, envelope.language ?? null],
       );
 
       // Something else ended the envelope after it went out (it was voided,
@@ -3205,6 +3235,16 @@ export async function sendDraftEnvelope(
         [envelope.updatedAt, envelopeId],
       );
 
+      await tx.query(
+        "UPDATE signers SET language = NULL WHERE envelope_id = $1 AND role = 'cc'",
+        [envelopeId],
+      );
+      for (const original of signers) {
+        await tx.query(
+          "UPDATE signers SET language = $1 WHERE id = $2 AND envelope_id = $3",
+          [original.language ?? null, original.id, envelopeId],
+        );
+      }
       await lockEnvelopeAuditChain(envelopeId, tx);
       await tx.query(
         `
@@ -3251,6 +3291,7 @@ export async function sendDraftEnvelope(
           await emailService.send(
             buildSigningInvitationEmail({
               branding,
+              locale: signer.language,
               envelopeTitle: envelope.title,
               expiresAt,
               senderName: input.senderName,
@@ -3516,6 +3557,7 @@ export async function correctSentEnvelopeSigner(
     }
 
     const signer = await queryOne<{
+      language: SignerLocale | null;
       consentedAt: number | null;
       email: string;
       emailCodeAttempts: number;
@@ -3543,6 +3585,7 @@ export async function correctSentEnvelopeSigner(
           last_notified_at AS "lastNotifiedAt",
           name,
           role,
+          language,
           sign_order AS "signOrder",
           signing_token_expires_at AS "signingTokenExpiresAt",
           signing_token_hash AS "signingTokenHash",
@@ -3698,7 +3741,7 @@ export async function correctSentEnvelopeSigner(
             branding,
             envelopeTitle: envelope.title,
             expiresAt: envelope.expiresAt,
-            locale: settings.signerLanguage,
+            locale: signer.language ?? "en",
             senderName: context.senderName,
             signerEmail: nextEmail,
             signerName: nextName,
@@ -4143,7 +4186,7 @@ async function voidSentEnvelopeOnce(
             branding,
             envelopeId,
             envelopeTitle: envelope.title,
-            locale: settings?.signerLanguage ?? "en",
+            locale: signer.language ?? "en",
             senderName: input.senderName,
             signerEmail: signer.email,
             signerName: signer.name,
@@ -4455,6 +4498,7 @@ export async function replaceDraftEnvelopeSigners(
             : hashAccessCode(signer.accessCode),
       email: signer.email,
       id: persistedSignerId,
+      language: signer.language,
       name: signer.name,
       requireEmailCode: signer.requireEmailCode,
       signatureMeaning: signer.signatureMeaning,
@@ -4500,6 +4544,7 @@ export async function replaceDraftEnvelopeSigners(
               access_code_hash = CASE WHEN $7::boolean THEN $8 ELSE access_code_hash END,
               require_email_code = COALESCE($9, require_email_code),
               signature_meaning = CASE WHEN $10::boolean THEN $11 ELSE signature_meaning END,
+              language = CASE WHEN $13::boolean THEN $14 ELSE language END,
               signing_step = $12
             WHERE id = $5 AND envelope_id = $6
           `,
@@ -4516,6 +4561,8 @@ export async function replaceDraftEnvelopeSigners(
             signer.signatureMeaning !== undefined,
             signer.signatureMeaning ?? null,
             signer.signingStep,
+            signer.language !== undefined,
+            signer.language ?? null,
           ],
         );
       } else {
@@ -4541,9 +4588,9 @@ export async function replaceDraftEnvelopeSigners(
               access_code_hash,
               require_email_code,
               signature_meaning,
-              signing_step
+              signing_step, language
             ) VALUES (
-              $1, $2, $3, $4, $5, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, $6, $7, $8, $9, $10, $11
+              $1, $2, $3, $4, $5, 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, $6, $7, $8, $9, $10, $11, $12
             )
           `,
           [
@@ -4558,6 +4605,7 @@ export async function replaceDraftEnvelopeSigners(
             signer.requireEmailCode ?? false,
             signer.signatureMeaning ?? null,
             signer.signingStep,
+            signer.language ?? null,
           ],
         );
       }
@@ -4613,6 +4661,7 @@ export async function replaceDraftEnvelopeSigners(
     redirectPath: `/envelopes/${envelopeId}/prepare`,
     signers: (await listSignersForEnvelopeId(envelopeId, database)).map(
       (signer) => ({
+        language: signer.language ?? null,
         email: signer.email,
         hasAccessCode: checks.get(signer.id)?.hasAccessCode ?? false,
         id: signer.id,

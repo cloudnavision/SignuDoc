@@ -474,7 +474,10 @@ test("signers of an embedded envelope who share a step each get a link, and the 
     });
     await recordSignerConsent(
       token,
-      { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+      {
+        language: "en",
+        disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+      },
       { database },
     );
     await submitSigningForToken(
@@ -769,7 +772,10 @@ test("a finished embedded link opened again in its site says what happened, not 
   await openEmbedLink(token, ORIGIN, database);
   await recordSignerConsent(
     token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
   await submitSigningForToken(
@@ -824,7 +830,10 @@ test("a signing already under way when its site is removed does not finish", asy
   await openEmbedLink(token, ORIGIN, database);
   await recordSignerConsent(
     token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
 

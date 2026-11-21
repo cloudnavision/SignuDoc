@@ -1,3 +1,4 @@
+import { t, type SignerLocale } from "@/lib/i18n";
 import type { ReactNode } from "react";
 import { connection } from "next/server";
 
@@ -9,6 +10,7 @@ import { buildBranding, type Branding } from "@/lib/branding";
 import { getBranding, resolveSettings } from "@/lib/settings";
 
 type PublicDocumentShellProps = {
+  locale?: SignerLocale;
   children: ReactNode;
   description: string;
   /** For policies. A page that is a tool, not a policy, leaves it out. */
@@ -33,6 +35,7 @@ async function loadBranding(): Promise<Branding> {
 // looks up what this install calls itself. Without that, such a page would
 // carry the hosted service's name and link to pages only it has.
 export async function PublicDocumentShell({
+  locale = "en",
   children,
   description,
   lastUpdated,
@@ -46,6 +49,7 @@ export async function PublicDocumentShell({
   return (
     <BrandingProvider branding={branding}>
       <PublicDocumentPage
+        locale={locale}
         description={description}
         lastUpdated={lastUpdated}
         title={title}
@@ -57,6 +61,7 @@ export async function PublicDocumentShell({
 }
 
 function PublicDocumentPage({
+  locale = "en",
   children,
   description,
   lastUpdated,
@@ -74,13 +79,14 @@ function PublicDocumentPage({
       <main className="flex-1 pb-10 pt-2 sm:pt-4">
         <div className="page-width">
           <article
+            lang={locale}
             className="panel mx-auto max-w-[880px] overflow-hidden"
             data-animate="enter"
           >
             <div className="px-6 pb-2 pt-9 sm:px-12 sm:pt-12">
               {lastUpdated ? (
                 <p className="section-eyebrow mb-3">
-                  Last updated {lastUpdated}
+                  {t(locale, "privacy.lastUpdated", { date: lastUpdated })}
                 </p>
               ) : null}
               <h1 className="max-w-[20ch] text-[clamp(2rem,4.5vw,3rem)] font-extrabold leading-[1.06] tracking-[-0.035em] text-(--fg)">
@@ -98,7 +104,7 @@ function PublicDocumentPage({
         </div>
       </main>
 
-      <PublicLegalFooter />
+      <PublicLegalFooter locale={locale} />
     </div>
   );
 }

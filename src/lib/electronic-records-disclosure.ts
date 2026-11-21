@@ -30,17 +30,36 @@ export type DisclosureParty = {
 /** A section with no heading is shown as a plain paragraph. */
 export type DisclosureSection = { heading: string; text: string };
 
-function contactFor(party: DisclosureParty, locale: SignerLocale = "en"): string {
+function contactFor(
+  party: DisclosureParty,
+  locale: SignerLocale = "en",
+): string {
   return party.contactAddress
-    ? t(locale, "disclosure.contactAt", {sender: party.senderName, contact: party.contactAddress})
+    ? t(locale, "disclosure.contactAt", {
+        sender: party.senderName,
+        contact: party.contactAddress,
+      })
     : party.senderName;
 }
 
 /** The built-in words, with who is asking and who to write to given as text. */
-function standardSections(sender: string, contact: string, locale: SignerLocale = "en"): DisclosureSection[] {
+function standardSections(
+  sender: string,
+  contact: string,
+  locale: SignerLocale = "en",
+): DisclosureSection[] {
   return ["using", "paper", "withdraw", "needs", "covers"].map((key) => ({
-    heading: t(locale, ("disclosure."+key+".heading") as import("./i18n.ts").SignerMessageKey),
-    text: t(locale, ("disclosure."+key+".text") as import("./i18n.ts").SignerMessageKey, {sender,contact}),
+    heading: t(
+      locale,
+      ("disclosure." +
+        key +
+        ".heading") as import("./i18n.ts").SignerMessageKey,
+    ),
+    text: t(
+      locale,
+      ("disclosure." + key + ".text") as import("./i18n.ts").SignerMessageKey,
+      { sender, contact },
+    ),
   }));
 }
 
@@ -232,4 +251,6 @@ export function getDisclosureVersion(
   return `custom-${fingerprint}`;
 }
 
-export function buildConsentStatement(locale: SignerLocale = "en"): string { return t(locale, "disclosure.consent"); }
+export function buildConsentStatement(locale: SignerLocale = "en"): string {
+  return t(locale, "disclosure.consent");
+}

@@ -51,7 +51,6 @@ import { type SigningSubmission } from "@/lib/schemas/field";
 import {
   countAnswerableFields,
   isNumberEntry,
-  NUMBER_ENTRY_MESSAGE,
 } from "@/lib/field-choices";
 import { getInitials } from "@/lib/initials";
 import { truncateToWholeCharacters } from "@/lib/text-truncate";
@@ -889,7 +888,10 @@ export function SigningLiveShell({
 
     try {
       const response = await fetch(record.consentUrl, {
-        body: JSON.stringify({ disclosureVersion: record.disclosure.version }),
+        body: JSON.stringify({
+          disclosureVersion: record.disclosure.version,
+          language: record.locale,
+        }),
         headers: { "content-type": "application/json" },
         method: "POST",
       });
@@ -1001,6 +1003,7 @@ export function SigningLiveShell({
   if (hasDeclined) {
     return (
       <SigningStateScreen
+        locale={locale}
         description={t(locale, "live.declineConfirm.description")}
         focusHeading
         title={t(locale, "live.declineConfirm.title")}
@@ -1009,7 +1012,7 @@ export function SigningLiveShell({
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div lang={locale} className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-20 bg-[rgba(243,244,248,0.88)] backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[1320px] items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex min-w-0 items-center gap-5">
@@ -1272,13 +1275,7 @@ export function SigningLiveShell({
                 <p className="mt-1.5 text-[0.9375rem] font-bold text-(--fg)">
                   {remainingFields === 0
                     ? t(locale, "live.allComplete")
-                    : remainingFields === 1
-                      ? t(locale, "live.oneRemaining", {
-                          count: remainingFields,
-                        })
-                      : t(locale, "live.manyRemaining", {
-                          count: remainingFields,
-                        })}
+                    : t(locale, "live.remaining", { count: remainingFields })}
                 </p>
                 {invalidNumberCount > 0 ? (
                   <p

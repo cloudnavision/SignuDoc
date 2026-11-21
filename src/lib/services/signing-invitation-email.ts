@@ -10,7 +10,7 @@ type SigningInvitationEmailInput = {
   envelopeTitle: string;
   /** The envelope's deadline, when it has one. */
   expiresAt?: number | null;
-  /** The signer's language: the install's signer language. */
+  /** The signer's language, fixed when sent. */
   locale: SignerLocale;
   senderName: string;
   signerEmail: string;
@@ -54,7 +54,7 @@ export function buildSigningInvitationEmail(
     "",
     sentLine,
     "",
-    cta,
+    t(locale, "email.ctaText"),
     input.signingUrl,
     ...(deadlineLine ? ["", deadlineLine] : []),
     "",
@@ -63,7 +63,9 @@ export function buildSigningInvitationEmail(
   ].join("\n");
   const htmlBody = [
     `<p>${escapeHtml(greeting)}</p>`,
-    `<p>${escapeHtml(sentLine)}</p>`,
+    locale === "en"
+      ? `<p>${escapeHtml(input.senderName)} sent you &ldquo;${escapeHtml(input.envelopeTitle)}&rdquo; through ${escapeHtml(productName)}.</p>`
+      : `<p>${escapeHtml(sentLine)}</p>`,
     `<p><a href="${escapeHtml(input.signingUrl)}">${escapeHtml(cta)}</a></p>`,
     deadlineLine ? `<p>${escapeHtml(deadlineLine)}</p>` : "",
     `<p>${escapeHtml(noAccount)}</p>`,

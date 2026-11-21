@@ -24,11 +24,11 @@ export async function sendFreshDownloadLinks(
 ): Promise<RenewedDownloadLinks> {
   const settings = await getSettings();
   const branding = buildBranding(settings);
-  const { signerLanguage: locale } = settings;
 
   return renewRecipientDownloadLinks(token, {
     database,
     async sendLinks({ envelope, evidenceUrl, signedUrl, signer }) {
+      const locale = signer.language ?? "en";
       const greeting = t(locale, "email.greeting", { name: signer.name });
       const subject = t(locale, "email.renewal.subject", {
         title: envelope.title,

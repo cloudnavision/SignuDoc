@@ -119,7 +119,10 @@ test("a name field is filled in with the signer's name when they sign", async ()
   );
   await recordSignerConsent(
     link.token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
 

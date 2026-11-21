@@ -11,8 +11,13 @@ import { STALE_DRAFT_RETENTION_DAYS } from "@/lib/retention";
 // Shown in the footer when the organization has not linked its own privacy
 // policy. The organization remains the controller and should check it.
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { signerLanguage: locale } = await getSettings();
+type PrivacyProps = { searchParams: Promise<{ language?: string }> };
+async function privacyLocale(props: PrivacyProps) {
+  const { language } = await props.searchParams;
+  return language === "es" || language === "en" ? language : "en";
+}
+export async function generateMetadata(props: PrivacyProps): Promise<Metadata> {
+  const locale = await privacyLocale(props);
 
   return {
     description: t(locale, "privacy.description"),
@@ -20,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function SignerPrivacyPage() {
+export default async function SignerPrivacyPage(props: PrivacyProps) {
   await connection();
 
   const settings = await getSettings();
@@ -33,7 +38,7 @@ export default async function SignerPrivacyPage() {
     redirect(settings.privacyUrl);
   }
 
-  const { signerLanguage: locale } = settings;
+  const locale = await privacyLocale(props);
   const organization =
     settings.organizationName?.trim() ||
     t(locale, "privacy.fallbackOrganization");
@@ -44,6 +49,7 @@ export default async function SignerPrivacyPage() {
 
   return (
     <PublicDocumentShell
+      locale={locale}
       description={t(locale, "privacy.intro", { organization })}
       lastUpdated="2026-11-13"
       title={t(locale, "privacy.title")}

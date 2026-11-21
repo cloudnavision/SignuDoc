@@ -35,7 +35,11 @@ function buildFooterLinks(
       ? [t(locale, "email.footer.privacyPolicy"), branding.privacyUrl]
       : [
           t(locale, "email.footer.privacyNotice"),
-          getEnv(env).appUrl ? "/signer-privacy" : null,
+          getEnv(env).appUrl
+            ? locale === "en"
+              ? "/signer-privacy"
+              : `/signer-privacy?language=${locale}`
+            : null,
         ],
     [t(locale, "email.footer.contact"), branding.contactUrl],
   ];

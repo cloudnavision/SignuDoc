@@ -49,9 +49,8 @@ const tokenStateCopy: Record<
     description: "state.alreadySigned.description",
   },
   completed: {
-    title: "This envelope has been completed",
-    description:
-      "Everyone has signed this document. No further action is needed.",
+    title: "state.completed.title",
+    description: "state.completed.body",
   },
   voided: {
     title: "state.voided.title",

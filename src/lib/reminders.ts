@@ -58,6 +58,7 @@ type ReminderEnvelopeRow = {
 };
 
 type ReminderSignerRow = {
+  language: SignerLocale | null;
   email: string;
   envelopeId: string;
   id: string;
@@ -87,6 +88,7 @@ type ReminderRequest =
   | { kind: "automatic" };
 
 type PersistedReminder = {
+  language: SignerLocale;
   auditEventId: string;
   envelopeExpiresAt: number | null;
   envelopeId: string;
@@ -219,6 +221,7 @@ async function getCurrentSignerForEnvelope(
         envelope_id AS "envelopeId",
         name,
         email,
+        language,
         sign_order AS "signOrder",
         status,
         signing_token_hash AS "signingTokenHash",
@@ -508,6 +511,7 @@ async function persistReminder(
     const signerMetadata = {
       signerEmail: persistedSigner.email,
       signerId: persistedSigner.id,
+      language: persistedSigner.language ?? "en",
       signerName: persistedSigner.name,
       signerOrder: persistedSigner.signOrder,
     };
@@ -558,6 +562,7 @@ async function persistReminder(
           : persistedEnvelope.ownerName?.trim() || persistedEnvelope.ownerEmail,
       signerEmail: persistedSigner.email,
       signerId: persistedSigner.id,
+      language: persistedSigner.language ?? "en",
       signerName: persistedSigner.name,
       userId: persistedEnvelope.userId,
     };
@@ -587,7 +592,7 @@ async function deliverReminder(
           envelopeTitle: persisted.envelopeTitle,
           expiresAt: persisted.envelopeExpiresAt,
           kind,
-          locale: settings.signerLanguage,
+          locale: persisted.language,
           senderName: persisted.senderName,
           signerEmail: persisted.signerEmail,
           signerName: persisted.signerName,

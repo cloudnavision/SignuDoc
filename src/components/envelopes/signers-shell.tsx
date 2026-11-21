@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  SIGNER_LANGUAGES,
+  LANGUAGE_NAMES,
+  type SignerLocale,
+} from "@/lib/i18n";
 import { useRef, useState, type ChangeEvent } from "react";
 
 import {
@@ -39,6 +44,7 @@ type SignersShellProps = {
 type SignerField = "email" | "name";
 
 type SignerChecks = {
+  language: SignerLocale | null;
   /** A new code typed by the sender. Empty means "no change". */
   accessCode: string;
   /** A code is saved on the server. */
@@ -92,6 +98,7 @@ function createSigner(
   },
 ): ShellSigner {
   return {
+    language: overrides?.language ?? null,
     accessCode: "",
     email: overrides?.email ?? "",
     hasAccessCode: overrides?.hasAccessCode ?? false,
@@ -179,6 +186,7 @@ function buildInitialModel(record?: DraftSignerStepData): InitialModel {
       hasAccessCode: signer.hasAccessCode,
       name: signer.name,
       requireEmailCode: signer.requireEmailCode,
+      language: signer.language ?? null,
       signatureMeaning: signer.signatureMeaning ?? null,
       signerId: signer.id,
       touched: { email: true, name: true },
@@ -326,6 +334,7 @@ function buildSignerRequest(
       id: signer.signerId,
       name: signer.name,
       requireEmailCode: signer.requireEmailCode,
+      language: signer.language ?? null,
       signatureMeaning: signer.signatureMeaning,
       signOrder: index + 1,
       signingStep: steps[index],
@@ -373,6 +382,7 @@ function SignerCard({
   onRemove,
   onTogetherChange,
   accessCodeError,
+  defaultLanguage = "en",
   part11Mode = false,
   previousStepLabel,
   showStep,
@@ -381,6 +391,7 @@ function SignerCard({
   stepSize,
 }: {
   accessCodeError?: string;
+  defaultLanguage?: SignerLocale;
   part11Mode?: boolean;
   /** Who signs in the step before this signer's, as "Signer 2". */
   previousStepLabel: string | null;
@@ -568,6 +579,31 @@ function SignerCard({
           </label>
         </div>
 
+        <label className="grid gap-2 rounded-2xl bg-white p-4 text-sm sm:p-5">
+          <span className="font-bold">Language the signer sees</span>
+          <select
+            className="field-input"
+            aria-label={`Signer ${order} language`}
+            disabled={disabled}
+            value={signer.language ?? ""}
+            onChange={(event) =>
+              onChecksChange({
+                language: event.target.value
+                  ? (event.target.value as SignerLocale)
+                  : null,
+              })
+            }
+          >
+            <option value="">
+              Install default ({LANGUAGE_NAMES[defaultLanguage]})
+            </option>
+            {SIGNER_LANGUAGES.map((language) => (
+              <option key={language} value={language}>
+                {LANGUAGE_NAMES[language]}
+              </option>
+            ))}
+          </select>
+        </label>
         {part11Mode ? (
           <label className="grid gap-2 rounded-2xl bg-white p-4 text-sm text-(--fg) sm:p-5">
             <span className="font-bold text-(--fg)">
@@ -1131,6 +1167,7 @@ export function SignersShell({
                   onTogetherChange={(together) =>
                     handleSignerTogetherChange(signer.localId, together)
                   }
+                  defaultLanguage={record?.defaultLanguage}
                   part11Mode={part11Mode}
                   previousStepLabel={describeStep(
                     (signingSteps[index] ?? 1) - 1,

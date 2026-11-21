@@ -167,6 +167,7 @@ export const signingFieldFitRequestSchema = z.object({
 });
 
 export const signerConsentRequestSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES),
   disclosureVersion: z.string().trim().min(1).max(40),
 });
 

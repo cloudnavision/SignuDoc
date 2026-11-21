@@ -1,18 +1,90 @@
-// Signer-facing copy in English and Spanish.
-//
-// Only what a signer sees is translated here: the signing pages, the legal
-// notices a signer is shown, and the emails a signer receives. The
-// dashboard stays in English, so settings, envelopes and templates have no
-// keys here. The organization picks the language once, under Settings,
-// Organization (the "signer language" setting); there is no per-signer
-// choice, and the disclosure version stored with each agreement shows
-// which words a signer saw.
+// Shared signer catalogue. English defines the keys; translations may be partial.
+// Sent envelopes keep their own language and each signer keeps theirs.
 
 export const SIGNER_LANGUAGES = ["en", "es"] as const;
 
 export type SignerLocale = (typeof SIGNER_LANGUAGES)[number];
 
 export const en = {
+  "live.remaining": {
+    one: "{count} required field remaining",
+    other: "{count} required fields remaining",
+  },
+  "email.voided.signedNote":
+    "The signing process has been canceled, so the document you signed will not be completed. No further action is needed.",
+  "email.ctaText": "Review and sign the document here:",
+  "privacy.lastUpdated": "Last updated {date}",
+  "state.completed.title": "This envelope has been completed",
+  "state.completed.body":
+    "Everyone has signed this document. No further action is needed.",
+  "certificate.title": "SignuDoc Certificate of Completion",
+  "certificate.auditTitle": "SignuDoc Audit Certificate",
+  "certificate.id": "Envelope ID: {value}",
+  "certificate.document": "Document title: {value}",
+  "certificate.source": "Source PDF: {value}",
+  "certificate.sourceHash": "Source document hash: {value}",
+  "certificate.signedHash": "Signed document SHA-256: {value}",
+  "certificate.auditHash": "Audit trail fingerprint (SHA-256): {value}",
+  "certificate.status": "Status: {value}",
+  "certificate.signers": "Signers",
+  "certificate.parallel":
+    "Signers with the same number were asked to sign at the same time. Each number started once everyone with the number before it had signed.",
+  "certificate.cc": "Copy recipients",
+  "certificate.ccNote":
+    "Sent a copy of the finished document. They did not sign it.",
+  "certificate.events": "Audit events",
+  "certificate.check": "How to check this record",
+  "certificate.checkBody":
+    "The signed document and this certificate are each sealed with a digital signature. A PDF reader shows the seal as valid only if the file has not changed since it was sealed. The SHA-256 values above can also be checked on this site's Verify page.",
+  "certificate.completed": "Completed",
+  "certificate.declined": "Declined",
+  "certificate.voided": "Voided",
+  "certificate.sent": "Sent",
+  "certificate.draft": "Draft",
+  "certificate.completedAt": "Completed at",
+  "certificate.declinedAt": "Declined at",
+  "certificate.voidedAt": "Voided at",
+  "certificate.recordedAt": "Recorded at",
+  "certificate.signedAt": "Signed at {date}",
+  "certificate.signerDeclinedAt": "Declined at {date}",
+  "certificate.waitingVoided": "Awaiting signature when envelope was voided",
+  "certificate.waitingDeclined":
+    "Awaiting signature when envelope was declined",
+  "certificate.waiting": "Awaiting signature",
+  "certificate.notReached": "Not reached",
+  "certificate.language": "Language: {language}",
+  "certificate.statement": "Consent statement: {statement}",
+  "certificate.identified": "Identified by: {methods}",
+  "certificate.link": "possession of the emailed signing link",
+  "certificate.agreed":
+    "Agreed to use electronic records and signatures at {date}{version}",
+  "certificate.version": " (disclosure {version})",
+  "certificate.adopted": "Signature adopted by: {methods}",
+  "certificate.ip": "Signed from IP {ip}",
+  "certificate.qualified": "a qualified electronic signature",
+  "certificate.advanced": "an advanced electronic signature",
+  "certificate.through": " through {provider}",
+  "certificate.provider":
+    "Signed with {level}{provider}{method}; the signature is in the signed PDF",
+  "certificate.issuer": ", issued by {issuer}",
+  "certificate.serial": ", serial {serial}",
+  "certificate.validTo": ", valid to {date}",
+  "certificate.signingCertificate":
+    "Signing certificate: {subject}{issuer}{serial}{validTo}",
+  "certificate.timestamp":
+    "The signature carries a timestamp from a time-stamping service",
+  "certificate.anotherSite": "another site",
+  "certificate.apiKey": ' through the API key "{key}"',
+  "certificate.embedded":
+    "a signing link given to the app at {origin}{key} (embedded signing; identifying the signer was left to that app)",
+  "certificate.method.typed": "typed",
+  "certificate.method.drawn": "drawn",
+  "certificate.method.uploaded": "uploaded",
+  "certificate.auth.access_code": "access code from the sender",
+  "certificate.auth.account":
+    "own account, with email address and password to open it",
+  "certificate.auth.email_code": "one-time code sent by email",
+  "certificate.reauth": "email address and password given again to sign",
   "error.completeRequired": "Complete all required fields before finishing.",
   "error.credentials.identityNotConfirmed":
     "Your account cannot sign this document right now: an administrator has to confirm your identity, and your email address must be confirmed. Ask the sender or an administrator.",
@@ -94,7 +166,7 @@ export const en = {
   "consentDialog.checkboxAria":
     "I agree to use electronic records and signatures",
   "consentDialog.description":
-    "{sender} sent you \u201c{title}\u201d to sign electronically.",
+    '{sender} sent you "{title}" to sign electronically.',
   "consentDialog.saveError": "Your agreement could not be saved right now.",
   "consentDialog.title": "Before you sign",
   "declineDialog.cancel": "Cancel",
@@ -127,24 +199,24 @@ export const en = {
   "done.emailComing":
     "You'll receive an email with the signed document once all parties have signed.",
   "done.fallbackTitle": "this document",
-  "done.recorded": "Your signature has been recorded for \u201c{title}\u201d.",
+  "done.recorded": 'Your signature has been recorded for "{title}".',
   "done.title": "You're all done.",
-  "email.code.line": "Your code to open \u201c{title}\u201d in {product} is:",
-  "email.code.subject": "Your code for \u201c{title}\u201d",
+  "email.code.line": 'Your code to open "{title}" in {product} is:',
+  "email.code.subject": 'Your code for "{title}"',
   "email.code.valid":
     "It works for {minutes} minutes. If you did not just open a signing link, ignore this email.",
   "email.completion.attached":
     "The completed document and its certificate are attached. Keep them: they are your copy of the agreement.",
   "email.completion.copyLine": "{sender} asked for you to receive a copy.",
   "email.completion.fromSender":
-    "\u201c{title}\u201d from {sender} has been fully signed in {product}.",
+    '"{title}" from {sender} has been fully signed in {product}.',
   "email.completion.linksHeading":
     "Download links (available for {days} days; an expired link offers to send a new one):",
   "email.completion.linksNote":
     "Download links are available for {days} days. An expired link offers to send a new one.",
   "email.completion.ready":
     "The completed document and its certificate are ready.",
-  "email.completion.subject": "\u201c{title}\u201d is fully signed",
+  "email.completion.subject": '"{title}" is fully signed',
   "email.cta": "Review and sign the document",
   "email.deadlineLine": "This request expires on {date}.",
   "email.downloadCertificate": "Download certificate",
@@ -158,33 +230,31 @@ export const en = {
   "email.footer.sentByProduct": "Sent using {product}.",
   "email.footer.terms": "Terms of Service",
   "email.greeting": "Hi {name},",
-  "email.invitation.sent":
-    "{sender} sent you \u201c{title}\u201d through {product}.",
-  "email.invitation.subject":
-    "{sender} requested your signature on \u201c{title}\u201d",
+  "email.invitation.sent": '{sender} sent you "{title}" through {product}.',
+  "email.invitation.subject": '{sender} requested your signature on "{title}"',
   "email.newestLink":
     "If you receive a newer invitation or reminder link, use the newest one.",
   "email.noAccount": "You do not need a {product} account to sign.",
   "email.reminder.auto.intro":
-    "{sender} is still waiting for your signature on \u201c{title}\u201d, sent through {product}.",
+    '{sender} is still waiting for your signature on "{title}", sent through {product}.',
   "email.reminder.auto.subject":
-    "Reminder: {sender} is waiting for your signature on \u201c{title}\u201d",
+    'Reminder: {sender} is waiting for your signature on "{title}"',
   "email.reminder.manual.intro":
-    "{sender} sent you a reminder to sign \u201c{title}\u201d through {product}.",
+    '{sender} sent you a reminder to sign "{title}" through {product}.',
   "email.reminder.manual.subject":
-    "{sender} sent you a reminder to sign \u201c{title}\u201d",
+    '{sender} sent you a reminder to sign "{title}"',
   "email.renewal.keep":
     "Download and keep the files: they are your copy of the record.",
   "email.renewal.line":
-    "Here are new download links for \u201c{title}\u201d in {product}. They work for {days} days.",
-  "email.renewal.subject": "New download links for \u201c{title}\u201d",
+    'Here are new download links for "{title}" in {product}. They work for {days} days.',
+  "email.renewal.subject": 'New download links for "{title}"',
   "email.text.certificateLabel": "Certificate",
   "email.text.redactedCertificateLabel": "Redacted certificate",
   "email.text.signedPdfLabel": "Signed PDF",
-  "email.voided.body": "{sender} voided \u201c{title}\u201d in {product}.",
+  "email.voided.body": '{sender} voided "{title}" in {product}.',
   "email.voided.note":
     "The signing process has been canceled. No further action is needed.",
-  "email.voided.subject": "\u201c{title}\u201d was voided by {sender}",
+  "email.voided.subject": '"{title}" was voided by {sender}',
   "finishDialog.advanced":
     "This document asks for an advanced electronic signature, made with a certificate in your own name.",
   "finishDialog.back": "Back",
@@ -192,8 +262,7 @@ export const en = {
     "I confirm this meaning. My name, the date and time, and this meaning will be printed with my signature.",
   "finishDialog.confirmMeaningAria": "I confirm the meaning of my signature",
   "finishDialog.continueToProvider": "Continue to {provider}",
-  "finishDialog.description":
-    "You are signing \u201c{title}\u201d from {sender}.",
+  "finishDialog.description": 'You are signing "{title}" from {sender}.',
   "finishDialog.emailAddress": "Email address",
   "finishDialog.enterCredentials":
     "Enter your account's email address and password to sign.",
@@ -368,8 +437,7 @@ export const en = {
   "verify.emailCodeLabel": "Code from your email",
   "verify.emailHelper": "The address this document was sent to ({email}).",
   "verify.emailMeCode": "Email me a code",
-  "verify.intro":
-    "{sender} asked for a check before you open \u201c{title}\u201d.",
+  "verify.intro": '{sender} asked for a check before you open "{title}".',
   "verify.sendError": "The code could not be sent right now.",
   "verify.sendNewCode": "Send a new code",
   "verify.step": "Step {step} of {total}.",
@@ -378,7 +446,87 @@ export const en = {
 
 export type SignerMessageKey = keyof typeof en;
 
-export const es: Record<SignerMessageKey, string> = {
+export const es: Partial<Record<SignerMessageKey, Message>> = {
+  "live.remaining": {
+    one: "{count} campo obligatorio pendiente",
+    other: "{count} campos obligatorios pendientes",
+  },
+  "email.ctaText": "Revise y firme el documento",
+  "privacy.lastUpdated": "Última actualización {date}",
+  "state.completed.title": "Este sobre se ha completado",
+  "state.completed.body":
+    "Todos han firmado este documento. No es necesario hacer nada más.",
+  "certificate.title": "Certificado de finalización de SignuDoc",
+  "certificate.auditTitle": "Certificado de auditoría de SignuDoc",
+  "certificate.id": "ID del sobre: {value}",
+  "certificate.document": "Título del documento: {value}",
+  "certificate.source": "PDF original: {value}",
+  "certificate.sourceHash": "Hash del documento original: {value}",
+  "certificate.signedHash": "SHA-256 del documento firmado: {value}",
+  "certificate.auditHash":
+    "Huella del registro de auditoría (SHA-256): {value}",
+  "certificate.status": "Estado: {value}",
+  "certificate.signers": "Firmantes",
+  "certificate.parallel":
+    "Se pidió a los firmantes con el mismo número que firmaran al mismo tiempo. Cada número comenzó cuando todos los del número anterior habían firmado.",
+  "certificate.cc": "Destinatarios de copia",
+  "certificate.ccNote":
+    "Recibieron una copia del documento terminado. No lo firmaron.",
+  "certificate.events": "Eventos de auditoría",
+  "certificate.check": "Cómo verificar este registro",
+  "certificate.checkBody":
+    "El documento firmado y este certificado están sellados con una firma digital. Un lector de PDF muestra el sello como válido solo si el archivo no ha cambiado desde que se selló. Los valores SHA-256 anteriores también se pueden comprobar en la página de verificación de este sitio.",
+  "certificate.completed": "Completado",
+  "certificate.declined": "Rechazado",
+  "certificate.voided": "Anulado",
+  "certificate.sent": "Enviado",
+  "certificate.draft": "Borrador",
+  "certificate.completedAt": "Completado el",
+  "certificate.declinedAt": "Rechazado el",
+  "certificate.voidedAt": "Anulado el",
+  "certificate.recordedAt": "Registrado el",
+  "certificate.signedAt": "Firmado el {date}",
+  "certificate.signerDeclinedAt": "Rechazado el {date}",
+  "certificate.waitingVoided": "Pendiente de firma cuando se anuló el sobre",
+  "certificate.waitingDeclined":
+    "Pendiente de firma cuando se rechazó el sobre",
+  "certificate.waiting": "Pendiente de firma",
+  "certificate.notReached": "No llegó su turno",
+  "certificate.language": "Idioma: {language}",
+  "certificate.statement": "Declaración de consentimiento: {statement}",
+  "certificate.identified": "Identificado mediante: {methods}",
+  "certificate.link": "posesión del enlace de firma enviado por correo",
+  "certificate.agreed":
+    "Aceptó usar registros y firmas electrónicos el {date}{version}",
+  "certificate.version": " (declaración {version})",
+  "certificate.adopted": "Firma adoptada mediante: {methods}",
+  "email.voided.signedNote":
+    "El proceso de firma se ha cancelado, por lo que el documento que firmaste no se completará. No tienes que hacer nada más.",
+  "certificate.ip": "Firmado desde la IP {ip}",
+  "certificate.qualified": "una firma electrónica cualificada",
+  "certificate.advanced": "una firma electrónica avanzada",
+  "certificate.through": " mediante {provider}",
+  "certificate.provider":
+    "Firmado con {level}{provider}{method}; la firma está en el PDF firmado",
+  "certificate.issuer": ", emitido por {issuer}",
+  "certificate.serial": ", número de serie {serial}",
+  "certificate.validTo": ", válido hasta {date}",
+  "certificate.signingCertificate":
+    "Certificado de firma: {subject}{issuer}{serial}{validTo}",
+  "certificate.timestamp":
+    "La firma incluye un sello de tiempo de un servicio de sellado de tiempo",
+  "certificate.anotherSite": "otro sitio",
+  "certificate.apiKey": ' mediante la clave API "{key}"',
+  "certificate.embedded":
+    "un enlace de firma entregado a la aplicación en {origin}{key} (firma integrada; la identificación del firmante se dejó a esa aplicación)",
+  "certificate.method.typed": "escrita",
+  "certificate.method.drawn": "dibujada",
+  "certificate.method.uploaded": "cargada",
+  "certificate.auth.access_code": "código de acceso del remitente",
+  "certificate.auth.account":
+    "cuenta propia, con correo y contraseña para abrirla",
+  "certificate.auth.email_code": "código de un solo uso enviado por correo",
+  "certificate.reauth": "correo y contraseña introducidos de nuevo para firmar",
   "error.completeRequired":
     "Complete todos los campos obligatorios antes de terminar.",
   "error.credentials.identityNotConfirmed":
@@ -748,28 +896,81 @@ export const es: Record<SignerMessageKey, string> = {
   "verify.title": "Confirme que es usted",
 };
 
-const dictionaries: Record<SignerLocale, Record<SignerMessageKey, string>> = {
-  en,
-  es,
+export type PluralMessage = Partial<Record<Intl.LDMLPluralRule, string>> & {
+  other: string;
 };
+export type Message = string | PluralMessage;
+export type Catalogue<K extends string = SignerMessageKey> = Partial<
+  Record<K, Message>
+>;
+export const dictionaries: Record<SignerLocale, Catalogue> = { en, es };
+export const LANGUAGE_NAMES: Record<SignerLocale, string> = {
+  en: "English",
+  es: "Español",
+};
+export function dateLocale(locale: string): string {
+  return locale === "en" ? "en-US" : locale === "es" ? "es-ES" : locale;
+}
 
-/**
- * A signer-facing message in the given language, with {name} placeholders
- * filled in. A placeholder left out of the params stays in the text, which
- * the dictionary test catches for the keys that are checked there.
- */
+/** Also used by test-only catalogues: adding a test language never enables it in production. */
+export function translate<K extends string>(
+  source: Record<K, Message>,
+  catalogue: Catalogue<K>,
+  locale: string,
+  key: K,
+  params?: Record<string, string | number>,
+): string {
+  const message = catalogue[key] ?? source[key];
+  const template =
+    typeof message === "string"
+      ? message
+      : (message[
+          new Intl.PluralRules(locale).select(Number(params?.count ?? 0))
+        ] ?? message.other);
+  return template.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
+    params && Object.hasOwn(params, name) ? String(params[name]) : placeholder,
+  );
+}
 export function t(
   locale: SignerLocale,
   key: SignerMessageKey,
   params?: Record<string, string | number>,
 ): string {
-  const template = dictionaries[locale][key];
+  return translate(en, dictionaries[locale] ?? {}, locale, key, params);
+}
 
-  if (!params) {
-    return template;
+/** Missing keys are reported separately; malformed translations fail validation. */
+export function validateCatalogue(
+  source: Record<string, Message>,
+  catalogue: Record<string, Message>,
+): { errors: string[]; missing: string[] } {
+  const errors: string[] = [];
+  const placeholders = (text: string) =>
+    [...text.matchAll(/\{(\w+)\}/g)]
+      .map((m) => m[1])
+      .sort()
+      .join(",");
+  for (const [key, value] of Object.entries(catalogue)) {
+    const original = source[key];
+    if (original === undefined) {
+      errors.push(key + ": unknown key");
+      continue;
+    }
+    const expected = placeholders(
+      typeof original === "string" ? original : original.other,
+    );
+    if (typeof value !== "string" && !value.other?.trim())
+      errors.push(key + ": missing other form");
+    for (const text of typeof value === "string"
+      ? [value]
+      : Object.values(value)) {
+      if (!text.trim()) errors.push(key + ": empty translation");
+      if (placeholders(text) !== expected)
+        errors.push(key + ": placeholders differ");
+    }
   }
-
-  return template.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
-    name in params ? String(params[name]) : placeholder,
-  );
+  return {
+    errors,
+    missing: Object.keys(source).filter((key) => catalogue[key] === undefined),
+  };
 }

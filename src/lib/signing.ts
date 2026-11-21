@@ -51,7 +51,12 @@ import {
   readStoredSettings,
   resolveSettings,
 } from "./settings.ts";
-import { t, type SignerMessageKey, type SignerLocale } from "./i18n.ts";
+import {
+  dateLocale,
+  t,
+  type SignerMessageKey,
+  type SignerLocale,
+} from "./i18n.ts";
 import {
   checkSigningCredentials,
   MAX_SIGNING_PASSWORD_ATTEMPTS,
@@ -173,6 +178,7 @@ type SigningEnvelopeRow = {
 };
 
 type SigningSignerRow = {
+  language: SignerLocale | null;
   createdAt: number;
   declineReason: string | null;
   declinedAt: number | null;
@@ -332,11 +338,25 @@ function getSigningDocumentUrl(token: string): string {
 }
 
 /**
- * The language this install's signers see, from Settings, Organization.
- * Every message signing.ts sends to a signer is said in this language.
+ * The language fixed on this signer at sending. Legacy rows use English.
  */
-async function getSignerLocale(): Promise<SignerLocale> {
-  return (await getSettings()).signerLanguage;
+function getSignerLocale(context?: {
+  signer: { language?: SignerLocale | null };
+}): SignerLocale {
+  return context?.signer.language ?? "en";
+}
+
+/** A link's presentation language, even after it has been spent. Unknown links use English. */
+export async function getSigningLanguageForToken(
+  token: string,
+  database: DbExecutor = getDb(),
+): Promise<SignerLocale> {
+  const row = await queryOne<{ language: SignerLocale | null }>(
+    database,
+    "SELECT language FROM signers WHERE signing_token_hash = $1 OR spent_signing_token_hash = $1 LIMIT 1",
+    [hashOpaqueToken(token)],
+  );
+  return row?.language ?? "en";
 }
 
 /**
@@ -504,7 +524,7 @@ function buildCompletionSignerEmail(input: {
   evidenceDownloadUrl: string;
   envelopeId: string;
   envelopeTitle: string;
-  /** The signer's language: the install's signer language. */
+  /** The signer's language fixed at sending. */
   locale: SignerLocale;
   senderName: string;
   signerEmail: string;
@@ -620,6 +640,7 @@ async function getEnvelopeRow(
           user_id AS "userId",
           title,
           status,
+          language,
           source_pdf_key AS "sourcePdfKey",
           source_pdf_filename AS "sourcePdfFilename",
           source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -659,6 +680,7 @@ async function listSignerRows(
         envelope_id AS "envelopeId",
         name,
         email,
+        language,
         sign_order AS "signOrder",
         signing_step AS "signingStep",
         status,
@@ -692,7 +714,7 @@ async function listCopyRecipientRows(
   return queryMany<CopyRecipientRecord>(
     database,
     `
-      SELECT id, name, email
+      SELECT id, name, email, language
       FROM signers
       WHERE envelope_id = $1
         AND role = 'cc'
@@ -714,6 +736,7 @@ async function getSignerRowBySigningTokenHash(
         envelope_id AS "envelopeId",
         name,
         email,
+        language,
         sign_order AS "signOrder",
         signing_step AS "signingStep",
         status,
@@ -838,10 +861,7 @@ async function lockSentEnvelope(
 
   if (locked.rowCount !== 1) {
     // Voided, declined or deleted since the page was opened.
-    throw new SigningMutationError(
-      t(await getSignerLocale(), "error.linkInactive"),
-      409,
-    );
+    throw new SigningMutationError(t("en", "error.linkInactive"), 409);
   }
 }
 
@@ -889,10 +909,7 @@ async function lockSignerForPresentedToken(
     (locked.expiresAt !== null &&
       locked.expiresAt < Math.floor(Date.now() / 1000))
   ) {
-    throw new SigningMutationError(
-      t(await getSignerLocale(), "error.linkInactive"),
-      409,
-    );
+    throw new SigningMutationError(t("en", "error.linkInactive"), 409);
   }
 }
 
@@ -961,12 +978,13 @@ async function buildImageDataUrl(
 function formatLocalSigningDate(
   submittedAt: number,
   timezoneOffsetMinutes: number,
+  locale: SignerLocale,
 ): string {
   const localDateTime = new Date(
     submittedAt * 1000 - timezoneOffsetMinutes * 60 * 1000,
   );
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(dateLocale(locale), {
     day: "numeric",
     month: "long",
     timeZone: "UTC",
@@ -1251,6 +1269,7 @@ async function sendCompletionEmails(input: {
     ...input.copyRecipients.map((recipient) => ({
       ...recipient,
       copyOnly: true,
+      language: recipient.language ?? "en",
     })),
   ];
   const signerMessages = await Promise.all(
@@ -1297,7 +1316,7 @@ async function sendCompletionEmails(input: {
             envelopeId: input.envelopeId,
             envelopeTitle: input.envelopeTitle,
             evidenceDownloadUrl: redactedEvidenceLink.url,
-            locale: settings.signerLanguage,
+            locale: signer.language ?? "en",
             senderName,
             signedDownloadUrl: signedLink.url,
             signerEmail: signer.email,
@@ -1456,7 +1475,7 @@ export async function sendSignerEmailCode(
 
   if (!state.requireEmailCode) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.noCodeNeeded"),
+      t(getSignerLocale(context), "error.noCodeNeeded"),
       400,
     );
   }
@@ -1517,7 +1536,7 @@ export async function sendSignerEmailCode(
 
     if (!stillThisLink) {
       throw new SigningMutationError(
-        t(await getSignerLocale(), "error.linkInactive"),
+        t(getSignerLocale(context), "error.linkInactive"),
         409,
       );
     }
@@ -1541,7 +1560,7 @@ export async function sendSignerEmailCode(
   }
 
   const minutes = Math.round(EMAIL_CODE_TTL_SECONDS / 60);
-  const locale = await getSignerLocale();
+  const locale = getSignerLocale(context);
   const greeting = t(locale, "email.greeting", { name: context.signer.name });
   const codeLine = t(locale, "email.code.line", {
     title: context.envelope.title,
@@ -1665,7 +1684,7 @@ export async function verifySignerCheck(
 
   if (!requiredSignerChecks(state).includes(parsed.method)) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.checkNotNeeded"),
+      t(getSignerLocale(context), "error.checkNotNeeded"),
       400,
     );
   }
@@ -1704,7 +1723,7 @@ export async function verifySignerCheck(
       );
 
       throw new SigningMutationError(
-        describeCredentialFailure(result, await getSignerLocale()),
+        describeCredentialFailure(result, getSignerLocale(context)),
         400,
       );
     }
@@ -1760,7 +1779,7 @@ export async function verifySignerCheck(
 
     if (!current) {
       throw new SigningMutationError(
-        t(await getSignerLocale(), "error.codeExpired"),
+        t(getSignerLocale(context), "error.codeExpired"),
         410,
       );
     }
@@ -1804,7 +1823,7 @@ export async function verifySignerCheck(
 
   if (!passed) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.codeWrong"),
+      t(getSignerLocale(context), "error.codeWrong"),
       400,
     );
   }
@@ -1877,6 +1896,7 @@ async function readSignerDisclosure(
       senderName: normalizeSenderName(context.sender),
     },
     customDisclosure,
+    getSignerLocale(context),
   );
 
   return {
@@ -1913,9 +1933,12 @@ export async function recordSignerConsent(
   const disclosure = await readSignerDisclosure(context, database);
   const disclosureVersion = disclosure.version;
 
-  if (parsed.disclosureVersion !== disclosureVersion) {
+  if (
+    parsed.language !== getSignerLocale(context) ||
+    parsed.disclosureVersion !== disclosureVersion
+  ) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.disclosureChanged"),
+      t(getSignerLocale(context), "error.disclosureChanged"),
       409,
     );
   }
@@ -1929,7 +1952,7 @@ export async function recordSignerConsent(
   // The statement as the signer read it, so the stored agreement says which
   // words — and in which language — they agreed to. Read before the
   // transaction, like the settings reads around sends.
-  const statement = buildConsentStatement(await getSignerLocale());
+  const statement = buildConsentStatement(getSignerLocale(context));
 
   await withTransaction(async (tx) => {
     const updated = await tx.query(
@@ -1962,7 +1985,7 @@ export async function recordSignerConsent(
 
       if (!current || current.signingTokenHash !== presentedTokenHash) {
         throw new SigningMutationError(
-          t(await getSignerLocale(), "error.linkInactive"),
+          t(getSignerLocale(context), "error.linkInactive"),
           409,
         );
       }
@@ -1981,6 +2004,7 @@ export async function recordSignerConsent(
         metadata: {
           ...signerAuditMetadata(context),
           disclosureVersion,
+          language: parsed.language,
           // The built-in words are known from their version. A custom
           // disclosure can be changed or taken away later, so the words the
           // signer saw, filled in as they read them, are kept with the
@@ -2143,7 +2167,7 @@ export async function getSigningPayloadForToken(
   );
   const storageService = createStorageService();
   const disclosure = await readSignerDisclosure(context, database);
-  const locale = (await getSettings()).signerLanguage;
+  const locale = getSignerLocale(context);
 
   await recordViewedEventOnce(context, requestMeta, database);
 
@@ -2293,14 +2317,14 @@ async function reauthenticatePart11Signer(
 
   if (!state.accountUserId || !meaning) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.part11NoAccount"),
+      t(getSignerLocale(context), "error.part11NoAccount"),
       409,
     );
   }
 
   if (!reauthentication) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.enterCredentials"),
+      t(getSignerLocale(context), "error.enterCredentials"),
       400,
     );
   }
@@ -2332,7 +2356,7 @@ async function reauthenticatePart11Signer(
     );
 
     throw new SigningMutationError(
-      describeCredentialFailure(result, await getSignerLocale()),
+      describeCredentialFailure(result, getSignerLocale(context)),
       400,
     );
   }
@@ -2376,10 +2400,7 @@ async function commitProviderRevision(
   );
 
   if (!current) {
-    throw new SigningMutationError(
-      t(await getSignerLocale(), "error.documentChanged"),
-      409,
-    );
+    throw new SigningMutationError(t("en", "error.documentChanged"), 409);
   }
 
   await tx.query(
@@ -2401,10 +2422,7 @@ async function commitProviderRevision(
   );
 
   if (session.rowCount !== 1) {
-    throw new SigningMutationError(
-      t(await getSignerLocale(), "error.sessionEnded"),
-      409,
-    );
+    throw new SigningMutationError(t("en", "error.sessionEnded"), 409);
   }
 
   return current.revisionKey === completion.revision.key
@@ -2443,10 +2461,7 @@ async function assertStillSignersTurn(
   );
 
   if (turn.rowCount !== 1) {
-    throw new SigningMutationError(
-      t(await getSignerLocale(), "error.linkInactive"),
-      409,
-    );
+    throw new SigningMutationError(t("en", "error.linkInactive"), 409);
   }
 }
 
@@ -2531,6 +2546,7 @@ function buildSignerSubmission(
   const localDateValue = formatLocalSigningDate(
     submittedAt,
     parsedInput.clientTimezoneOffsetMinutes,
+    locale,
   );
   const drawnSignatureUploads: Array<{
     body: Uint8Array;
@@ -2766,13 +2782,13 @@ async function submitSigningOnce(
   if ((context.envelope.signatureLevel ?? "simple") === "simple") {
     if (providerSignature) {
       throw new SigningMutationError(
-        t(await getSignerLocale(), "error.notProviderSigned"),
+        t(getSignerLocale(context), "error.notProviderSigned"),
         409,
       );
     }
   } else if (!providerSignature) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.providerRequired"),
+      t(getSignerLocale(context), "error.providerRequired"),
       409,
     );
   }
@@ -2785,7 +2801,7 @@ async function submitSigningOnce(
 
   if (signerChecks.state.consentedAt === null) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.needConsent"),
+      t(getSignerLocale(context), "error.needConsent"),
       409,
     );
   }
@@ -2814,7 +2830,7 @@ async function submitSigningOnce(
     context,
     parsedInput,
     submittedAt,
-    await getSignerLocale(),
+    getSignerLocale(context),
   );
 
   await assertTypedValuesFitTheirFields(context, fieldUpdates);
@@ -2903,7 +2919,7 @@ async function submitSigningOnce(
         if (!lockedEnvelope) {
           // Voided or declined since the page was opened.
           throw new SigningMutationError(
-            t(await getSignerLocale(), "error.linkInactive"),
+            t(getSignerLocale(context), "error.linkInactive"),
             409,
           );
         }
@@ -2955,7 +2971,7 @@ async function submitSigningOnce(
 
           if (result.rowCount !== 1) {
             throw new SigningMutationError(
-              t(await getSignerLocale(), "error.fieldSaveFailed"),
+              t(getSignerLocale(context), "error.fieldSaveFailed"),
               500,
             );
           }
@@ -2987,7 +3003,7 @@ async function submitSigningOnce(
 
         if (signedSignerResult.rowCount !== 1) {
           throw new SigningMutationError(
-            t(await getSignerLocale(), "error.linkInactive"),
+            t(getSignerLocale(context), "error.linkInactive"),
             409,
           );
         }
@@ -3088,6 +3104,10 @@ async function submitSigningOnce(
           const delivery = await emailService.send(
             buildSigningInvitationEmail({
               branding: await getBranding(),
+              locale:
+                context.signers.find(
+                  (signer) => signer.id === nextSignerDelivery.id,
+                )?.language ?? "en",
               envelopeTitle: context.envelope.title,
               expiresAt: nextSignerDeadline,
               senderName: normalizeSenderName(context.sender),
@@ -3138,7 +3158,7 @@ async function submitSigningOnce(
 
     if (!sourcePdfHead.exists) {
       throw new SigningMutationError(
-        t(await getSignerLocale(), "error.sourceMissing"),
+        t(getSignerLocale(context), "error.sourceMissing"),
         500,
       );
     }
@@ -3275,7 +3295,7 @@ async function submitSigningOnce(
 
           if (result.rowCount !== 1) {
             throw new SigningMutationError(
-              t(await getSignerLocale(), "error.fieldSaveFailed"),
+              t(getSignerLocale(context), "error.fieldSaveFailed"),
               500,
             );
           }
@@ -3307,7 +3327,7 @@ async function submitSigningOnce(
 
         if (signedSignerResult.rowCount !== 1) {
           throw new SigningMutationError(
-            t(await getSignerLocale(), "error.linkInactive"),
+            t(getSignerLocale(context), "error.linkInactive"),
             409,
           );
         }
@@ -3341,7 +3361,7 @@ async function submitSigningOnce(
 
         if (completedEnvelopeResult.rowCount !== 1) {
           throw new SigningMutationError(
-            t(await getSignerLocale(), "error.finalizeFailed"),
+            t(getSignerLocale(context), "error.finalizeFailed"),
             500,
           );
         }
@@ -3462,7 +3482,7 @@ export async function prepareSignerSubmission(
 
   if ((context.envelope.signatureLevel ?? "simple") === "simple") {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.notProviderSigned"),
+      t(getSignerLocale(context), "error.notProviderSigned"),
       409,
     );
   }
@@ -3475,7 +3495,7 @@ export async function prepareSignerSubmission(
 
   if (signerChecks.state.consentedAt === null) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.needConsent"),
+      t(getSignerLocale(context), "error.needConsent"),
       409,
     );
   }
@@ -3485,7 +3505,7 @@ export async function prepareSignerSubmission(
       context,
       parsedInput,
       submittedAt,
-      await getSignerLocale(),
+      getSignerLocale(context),
     );
 
   await assertTypedValuesFitTheirFields(context, fieldUpdates);
@@ -3537,7 +3557,7 @@ async function declineSigningOnce(
 
   if (!currentSignerId) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.linkInactive"),
+      t(getSignerLocale(context), "error.linkInactive"),
       409,
     );
   }
@@ -3550,7 +3570,7 @@ async function declineSigningOnce(
 
   if (!sourcePdfHead.exists) {
     throw new SigningMutationError(
-      t(await getSignerLocale(), "error.sourceMissing"),
+      t(getSignerLocale(context), "error.sourceMissing"),
       500,
     );
   }
@@ -3634,7 +3654,7 @@ async function declineSigningOnce(
 
     if (recipientsChanged) {
       throw new SigningMutationError(
-        t(await getSignerLocale(), "error.envelopeChangedWhileDeclining"),
+        t(getSignerLocale(context), "error.envelopeChangedWhileDeclining"),
         409,
       );
     }
@@ -3736,7 +3756,7 @@ async function declineSigningOnce(
 
     if (declinedSignerResult.rowCount !== 1) {
       throw new SigningMutationError(
-        t(await getSignerLocale(), "error.linkInactive"),
+        t(getSignerLocale(context), "error.linkInactive"),
         409,
       );
     }
@@ -3766,7 +3786,7 @@ async function declineSigningOnce(
 
     if (declinedEnvelopeResult.rowCount !== 1) {
       throw new SigningMutationError(
-        t(await getSignerLocale(), "error.linkInactive"),
+        t(getSignerLocale(context), "error.linkInactive"),
         409,
       );
     }

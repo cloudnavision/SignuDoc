@@ -34,12 +34,12 @@ test("an English invitation keeps the English words", () => {
 
   assert.equal(
     message.subject,
-    "Ana Acme requested your signature on “Contrato de arrendamiento”",
+    'Ana Acme requested your signature on "Contrato de arrendamiento"',
   );
   assert.match(message.textBody, /^Hi Luis López,$/m);
   assert.match(
     message.textBody,
-    /Ana Acme sent you “Contrato de arrendamiento” through Acme Corp\./,
+    /Ana Acme sent you "Contrato de arrendamiento" through Acme Corp\./,
   );
   assert.match(
     message.textBody,

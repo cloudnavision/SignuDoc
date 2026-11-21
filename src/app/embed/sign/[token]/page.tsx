@@ -9,6 +9,7 @@ import {
   SigningAccessError,
   SigningVerificationRequiredError,
   getSigningPayloadForToken,
+  getSigningLanguageForToken,
 } from "@/lib/signing";
 
 // The signing page, shown in a frame inside another app (see
@@ -32,6 +33,7 @@ export default async function EmbedSignPage({
     Array.isArray(originParam) ? originParam[0] : originParam,
   );
   const database = getDb();
+  const locale = await getSigningLanguageForToken(token, database);
   const opened = await openEmbedLink(token, origin, database).catch(
     () => ({ ok: false, reason: "unknown" }) as const,
   );
@@ -47,6 +49,7 @@ export default async function EmbedSignPage({
 
     return (
       <SigningShell
+        locale={locale}
         embedOrigin={tellOrigin}
         initialState={opened.reason === "unknown" ? "expired" : "error"}
         key={token}
@@ -89,6 +92,7 @@ export default async function EmbedSignPage({
 
   return (
     <SigningShell
+      locale={locale}
       embedOrigin={origin}
       initialState={initialState}
       key={token}

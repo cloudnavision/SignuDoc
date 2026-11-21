@@ -71,7 +71,10 @@ export function PublicLegalFooter({
             }
           : {
               external: false,
-              href: "/signer-privacy",
+              href:
+                locale === "en"
+                  ? "/signer-privacy"
+                  : `/signer-privacy?language=${locale}`,
               label:
                 labelVariant === "long"
                   ? t(locale, "footer.privacyNotice")

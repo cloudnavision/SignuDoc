@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SIGNER_LANGUAGES } from "../i18n.ts";
 
 import {
   auditActorTypes,
@@ -48,6 +49,7 @@ export const reminderIntervalDaysSchema = z
 
 /** What the sender chooses on the last step before sending. */
 export const sendEnvelopeOptionsSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES).optional(),
   expiresInDays: deadlineDaysSchema.optional(),
   reminderIntervalDays: reminderIntervalDaysSchema.optional(),
   /** Simple unless the install has a signing provider. */
@@ -137,6 +139,7 @@ export const signatureLevelSchema = z.enum(["simple", "advanced", "qualified"]);
 export type EnvelopeSignatureLevel = z.infer<typeof signatureLevelSchema>;
 
 export const envelopeRecordSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES).nullable().optional(),
   id: idSchema,
   userId: idSchema,
   title: envelopeTitleSchema,
