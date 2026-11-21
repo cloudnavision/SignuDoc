@@ -30,6 +30,7 @@ import {
   getBranding,
   getSettings,
   isMissingSchemaError,
+  readStoredSettings,
 } from "../settings.ts";
 import { enforceSessionLimits } from "../session-controls.ts";
 import { clearFailedSignIns } from "../sign-in-security.ts";
@@ -39,6 +40,12 @@ import {
   type EnvSource,
 } from "../utils/env.ts";
 import { escapeHtml } from "../utils/html.ts";
+import {
+  checkOrganization,
+  profileFields,
+  providerClaimsFor,
+  syncProfile,
+} from "./provider-claims.ts";
 import { isRunningSetup } from "./setup-context.ts";
 import { signInEvents } from "./sign-in-events.ts";
 import {
@@ -295,6 +302,7 @@ export function createAppAuth({
   };
   const sso = readSsoConfig(env);
   const passwordPolicy = readPasswordSignInPolicy(env);
+  const ssoClaims = providerClaimsFor(SSO_PROVIDER_ID, sso);
   const plugins = [
     // Single sign-on with the organization's identity provider (sso.ts).
     // Its sign-ins do not ask for this app's second step: the provider's
@@ -316,6 +324,9 @@ export function createAppAuth({
                 // must not count. See isSsoEmailVerified in sso.ts.
                 mapProfileToUser: (profile) => ({
                   emailVerified: isSsoEmailVerified(profile),
+                  // The provider's name and photo for a new account; later
+                  // sign-ins refresh them in validateUserInfo below.
+                  ...(ssoClaims ? profileFields(profile, ssoClaims) : {}),
                 }),
                 name: sso.name,
                 pkce: true,
@@ -455,6 +466,34 @@ export function createAppAuth({
           return;
         }
 
+        // The provider is asked to offer only accounts in the allowed
+        // domains (provider-claims.ts). Only a hint: validateUserInfo below
+        // holds the line.
+        const requested = (ctx.body ?? {}) as {
+          additionalParams?: Record<string, string>;
+          provider?: unknown;
+        };
+        const hinted =
+          ctx.path === "/sign-in/social" &&
+          typeof requested.provider === "string"
+            ? providerClaimsFor(requested.provider, sso)
+            : null;
+
+        if (hinted) {
+          return {
+            context: {
+              ...ctx,
+              body: {
+                ...requested,
+                additionalParams: {
+                  ...requested.additionalParams,
+                  ...hinted.authorizationParams(await readAllowedDomains()),
+                },
+              },
+            },
+          };
+        }
+
         const body: unknown = ctx.body;
         const email =
           typeof body === "object" &&
@@ -543,7 +582,50 @@ export function createAppAuth({
       // the account comes to be created, so the check in hooks.before above
       // is not the only thing standing in the way.
       validateUserInfo: async ({ source, user }) => {
-        if (source.action !== "create-user" || isRunningSetup()) {
+        if (isRunningSetup()) {
+          return;
+        }
+
+        const claims =
+          source.method === "oauth" && source.oauth
+            ? providerClaimsFor(source.oauth.providerId, sso)
+            : null;
+
+        if (claims && source.method === "oauth" && source.oauth) {
+          // Held to the organization's accounts every time, not only when
+          // the account is made.
+          const organization = checkOrganization(
+            source.oauth.profile,
+            claims,
+            await readAllowedDomains(),
+          );
+
+          if (!organization.allowed) {
+            return {
+              error: organization.code,
+              errorDescription: organization.message,
+            };
+          }
+
+          // An existing account takes its name and picture from the
+          // provider at every sign-in (a new one gets them in
+          // mapProfileToUser). A failure here does not stop anyone signing in.
+          if (
+            source.action !== "create-user" &&
+            typeof user.email === "string"
+          ) {
+            await syncProfile(
+              user.email,
+              source.oauth.profile,
+              claims,
+              database,
+            ).catch((error: unknown) => {
+              console.error("[auth] Could not update the profile:", error);
+            });
+          }
+        }
+
+        if (source.action !== "create-user") {
           return;
         }
 
@@ -561,6 +643,17 @@ export function createAppAuth({
       },
     },
   });
+}
+
+/**
+ * The domains an organization's accounts must be in right now, read fresh so
+ * a change to the sign-up rule holds at once: its domains when sign-up is
+ * limited to domains, otherwise none (any organization's account).
+ */
+async function readAllowedDomains(): Promise<string[]> {
+  const settings = await readStoredSettings();
+
+  return settings?.signupMode === "domains" ? settings.allowedEmailDomains : [];
 }
 
 export function getAuth(): AppAuth {

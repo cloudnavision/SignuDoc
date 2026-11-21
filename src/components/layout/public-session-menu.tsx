@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/layout/user-avatar";
 import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/cn";
 import { getInitials } from "@/lib/initials";
@@ -61,12 +62,17 @@ export function PublicSessionMenu({
         <button
           aria-label="Open account menu"
           className={cn(
-            "inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#ffd9c2] text-[0.8125rem] font-bold text-[#7a3412] transition hover:ring-4 hover:ring-[rgba(28,29,43,0.06)]",
+            "inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#ffd9c2] text-[0.8125rem] font-bold text-[#7a3412] transition hover:ring-4 hover:ring-[rgba(28,29,43,0.06)]",
             buttonClassName,
           )}
           type="button"
         >
-          {initials ? initials : <CircleUserRound className="size-4" />}
+          <UserAvatar
+            fallback={
+              initials ? initials : <CircleUserRound className="size-4" />
+            }
+            image={session.user.image}
+          />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

@@ -46,6 +46,7 @@ export default async function AuthenticatedAppLayout({
         showEmailSetupNotice={isAdmin && emailNeedsAttention(settings)}
         user={{
           email: session.user.email,
+          image: session.user.image ?? null,
           name: session.user.name,
         }}
       >
