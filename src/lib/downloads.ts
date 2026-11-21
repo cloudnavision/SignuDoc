@@ -842,6 +842,22 @@ export async function getPublicEnvelopeDownloadForToken(
   });
 }
 
+/** Resolve even an expired token without granting access to the document. */
+export async function getDownloadLanguageForToken(
+  token: string,
+  database: DbExecutor = getDb(),
+): Promise<import("./i18n.ts").SignerLocale> {
+  const row = await getRecipientDownloadTokenByHash(
+    hashOpaqueToken(token),
+    database,
+  );
+  if (!row) return "en";
+  return (
+    (await getSignerForEnvelope(row.signerId, row.envelopeId, database))
+      ?.language ?? "en"
+  );
+}
+
 export type RenewedDownloadLinks = {
   /** The signer's address with most of it hidden, to show on the page. */
   maskedEmail: string;

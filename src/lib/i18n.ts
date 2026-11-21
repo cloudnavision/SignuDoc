@@ -196,6 +196,14 @@ export const en = {
   "disclosure.withdraw.text":
     "You can withdraw this agreement at any time before you sign by declining or by telling {contact}. Withdrawing does not undo a signature you already gave.",
   "done.closeTab": "You can close this tab.",
+  "download.expired.title": "This download link has expired",
+  "download.expired.description":
+    "Download links work for a limited time. You can have new ones sent to the email address this document was sent to.",
+  "download.renew.error": "New links could not be sent right now.",
+  "download.renew.sent": "New links are on their way to {email}.",
+  "download.renew.sending": "Sending...",
+  "download.renew.button": "Email me new download links",
+  "state.embedExpired": "Ask the app you are using for a new signing link.",
   "done.emailComing":
     "You'll receive an email with the signed document once all parties have signed.",
   "done.fallbackTitle": "this document",
@@ -429,6 +437,17 @@ export const en = {
     "This document is signed with your own account here. Enter the password you sign in with.",
   "verify.accountLabel": "Password",
   "verify.checkError": "The code could not be checked right now.",
+  "verify.tooMany":
+    "Too many tries. Wait before trying again, or ask the sender for help.",
+  "verify.unavailable":
+    "This signing link is no longer available. Ask the sender for a new link.",
+  "verify.accountError":
+    "Your identity could not be confirmed. Check your email and password, or contact the sender.",
+  "verify.cooldown":
+    "A code was already sent to {email} less than a minute ago, so no new email went out. Use that code, or send a new one when the countdown on the button ends.",
+  "verify.resendReady":
+    "A code was sent to {email}. If it has not arrived, you can send a new one now.",
+  "verify.resendWait": "Send a new code in {seconds}s",
   "verify.codeSent": "A code was sent to {email}.",
   "verify.continue": "Continue",
   "verify.emailAddress": "Email address",
@@ -629,22 +648,17 @@ export const es: Partial<Record<SignerMessageKey, Message>> = {
   "disclosure.contactAt": "{sender} en {contact}",
   "disclosure.consent":
     "He leído el aviso anterior, puedo abrir y guardar archivos PDF en este dispositivo, y acepto usar registros y firmas electrónicas para este documento.",
-  "disclosure.covers.heading": "Qué cubre esta aceptación",
-  "disclosure.covers.text":
-    "Este documento y los avisos sobre él que se le envíen a través de este sitio.",
-  "disclosure.needs.heading": "Lo que necesita",
-  "disclosure.needs.text":
-    "Un navegador actual y un dispositivo que pueda abrir y guardar archivos PDF. Recibirá el documento firmado por correo, así que mantenga su dirección de correo al día con el remitente. Descargue y conserve la copia firmada: es su registro.",
-  "disclosure.paper.heading": "Puede elegir el papel",
-  "disclosure.paper.text":
-    "No está obligado a aceptar. Para firmar en papel, o pedir una copia en papel de cualquier documento después de firmar, contacte a {contact}. La copia en papel es gratuita salvo que {sender} le indique lo contrario antes de que la pida.",
-  "disclosure.using.heading": "Uso de registros y firmas electrónicas",
-  "disclosure.using.text":
-    "{sender} le pide recibir este documento y firmarlo electrónicamente en lugar de en papel. Si acepta, su firma electrónica tiene el mismo efecto que una manuscrita, y los documentos que reciba de este modo se consideran entregados por escrito.",
-  "disclosure.withdraw.heading": "Retirar su aceptación",
-  "disclosure.withdraw.text":
-    "Puede retirar esta aceptación en cualquier momento antes de firmar, rechazando el documento o avisando a {contact}. Retirarla no anula una firma que ya haya dado.",
   "done.closeTab": "Puede cerrar esta pestaña.",
+  "download.expired.title": "Este enlace de descarga ha caducado",
+  "download.expired.description":
+    "Los enlaces de descarga funcionan durante un tiempo limitado. Puede recibir nuevos enlaces en el correo al que se envió este documento.",
+  "download.renew.error":
+    "No se pudieron enviar nuevos enlaces en este momento.",
+  "download.renew.sent": "Los nuevos enlaces están en camino a {email}.",
+  "download.renew.sending": "Enviando...",
+  "download.renew.button": "Enviarme nuevos enlaces de descarga",
+  "state.embedExpired":
+    "Pida un nuevo enlace de firma a la aplicación que está usando.",
   "done.emailComing":
     "Recibirá un correo con el documento firmado cuando todas las partes hayan firmado.",
   "done.fallbackTitle": "este documento",
@@ -879,6 +893,17 @@ export const es: Partial<Record<SignerMessageKey, Message>> = {
     "Este documento se firma con su propia cuenta aquí. Escriba la contraseña con la que inicia sesión.",
   "verify.accountLabel": "Contraseña",
   "verify.checkError": "No se pudo comprobar el código en este momento.",
+  "verify.tooMany":
+    "Demasiados intentos. Espere antes de volver a intentarlo o pida ayuda al remitente.",
+  "verify.unavailable":
+    "Este enlace de firma ya no está disponible. Pida un nuevo enlace al remitente.",
+  "verify.accountError":
+    "No se pudo confirmar su identidad. Compruebe su correo y contraseña o contacte con el remitente.",
+  "verify.cooldown":
+    "Ya se envió un código a {email} hace menos de un minuto, por lo que no se envió otro correo. Use ese código o envíe uno nuevo cuando termine la cuenta atrás del botón.",
+  "verify.resendReady":
+    "Se envió un código a {email}. Si no ha llegado, ya puede enviar uno nuevo.",
+  "verify.resendWait": "Enviar un nuevo código en {seconds}s",
   "verify.codeSent": "Se envió un código a {email}.",
   "verify.continue": "Continuar",
   "verify.emailAddress": "Correo electrónico",

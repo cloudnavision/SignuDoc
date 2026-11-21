@@ -94,6 +94,12 @@ export function withUserEmailLegalFooter(
   env: EnvSource = process.env,
 ): EmailBodyContent {
   const locale = input.locale ?? "en";
+  // Signer mail declares its language even when branding supplies no footer.
+  // Dashboard mail omits locale and retains its existing HTML fragment.
+  const htmlDocument = (body: string) =>
+    input.locale === undefined
+      ? body
+      : `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"></head><body>${body}</body></html>`;
   const links = buildFooterLinks(branding, locale, env);
   const logoHeader = buildLogoHeader(branding, env);
   const textLines: string[] = [];
@@ -137,9 +143,10 @@ export function withUserEmailLegalFooter(
   }
 
   if (htmlLines.length === 0) {
-    return logoHeader
-      ? { htmlBody: `${logoHeader}${input.htmlBody}`, textBody: input.textBody }
-      : input;
+    return {
+      htmlBody: htmlDocument(`${logoHeader}${input.htmlBody}`),
+      textBody: input.textBody,
+    };
   }
 
   const htmlFooter = [
@@ -148,7 +155,7 @@ export function withUserEmailLegalFooter(
   ].join("");
 
   return {
-    htmlBody: `${logoHeader}${input.htmlBody}${htmlFooter}`,
+    htmlBody: htmlDocument(`${logoHeader}${input.htmlBody}${htmlFooter}`),
     // Each entry starts with an empty line; one more newline puts that
     // empty line between the message and the footer.
     textBody: `${input.textBody}\n${textLines.join("\n")}`,

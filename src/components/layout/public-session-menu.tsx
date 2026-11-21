@@ -59,6 +59,7 @@ export function PublicSessionMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
+          lang="en"
           aria-label="Open account menu"
           className={cn(
             "inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[#ffd9c2] text-[0.8125rem] font-bold text-[#7a3412] transition hover:ring-4 hover:ring-[rgba(28,29,43,0.06)]",
@@ -70,6 +71,7 @@ export function PublicSessionMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        lang="en"
         align={align}
         className={cn("w-60", contentClassName)}
       >

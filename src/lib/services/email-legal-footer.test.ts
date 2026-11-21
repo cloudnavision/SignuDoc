@@ -184,3 +184,27 @@ test("without the site's address there is nowhere to fetch a logo from", () => {
 
   assert.doesNotMatch(result.htmlBody, /<img/);
 });
+
+test("signer email documents declare their language with and without a footer", () => {
+  for (const locale of ["en", "es"] as const) {
+    for (const branding of [
+      neutral,
+      HOSTED_BRANDING,
+      { ...neutral, hosted: true },
+    ]) {
+      const result = withUserEmailLegalFooter(
+        { ...body, locale },
+        branding,
+        env,
+      );
+      assert.match(
+        result.htmlBody,
+        new RegExp(`^<!doctype html><html lang="${locale}">`),
+      );
+      assert.match(
+        result.htmlBody,
+        /<body>[\s\S]*<p>Hello<\/p>[\s\S]*<\/body><\/html>$/,
+      );
+    }
+  }
+});

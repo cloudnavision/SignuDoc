@@ -1,10 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { t, type SignerLocale } from "@/lib/i18n";
 
 import { ShellButton } from "@/components/shared/form-shell";
 
-export function RenewDownloadButton({ token }: { token: string }) {
+export function RenewDownloadButton({
+  token,
+  locale = "en",
+}: {
+  token: string;
+  locale?: SignerLocale;
+}) {
   const [state, setState] = useState<
     | { kind: "idle" }
     | { kind: "sending" }
@@ -28,7 +35,7 @@ export function RenewDownloadButton({ token }: { token: string }) {
       if (!response.ok || !payload?.maskedEmail) {
         setState({
           kind: "error",
-          message: payload?.error ?? "New links could not be sent right now.",
+          message: t(locale, "download.renew.error"),
         });
         return;
       }
@@ -37,7 +44,7 @@ export function RenewDownloadButton({ token }: { token: string }) {
     } catch {
       setState({
         kind: "error",
-        message: "New links could not be sent right now.",
+        message: t(locale, "download.renew.error"),
       });
     }
   }
@@ -46,13 +53,13 @@ export function RenewDownloadButton({ token }: { token: string }) {
     <div className="space-y-4">
       {state.kind === "sent" ? (
         <p role="status" className="notice notice-success">
-          New links are on their way to {state.maskedEmail}.
+          {t(locale, "download.renew.sent", { email: state.maskedEmail })}
         </p>
       ) : (
         <ShellButton loading={state.kind === "sending"} onClick={handleClick}>
           {state.kind === "sending"
-            ? "Sending..."
-            : "Email me new download links"}
+            ? t(locale, "download.renew.sending")
+            : t(locale, "download.renew.button")}
         </ShellButton>
       )}
       {state.kind === "error" ? (

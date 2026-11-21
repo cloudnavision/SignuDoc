@@ -106,7 +106,7 @@ export function SigningShell({
       <SigningStateScreen
         description={
           embedOrigin && state === "expired"
-            ? "Ask the app you are using for a new signing link."
+            ? t(locale, "state.embedExpired")
             : t(locale, tokenState.description)
         }
         locale={locale}

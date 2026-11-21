@@ -10,7 +10,7 @@ import {
   getDisclosureVersion,
 } from "./electronic-records-disclosure.ts";
 import { issueSigningLink } from "./services/signing-links.ts";
-import { invalidateSettingsCache } from "./settings.ts";
+import { saveSettings, invalidateSettingsCache } from "./settings.ts";
 import {
   getSigningPayloadForToken,
   recordSignerConsent,
@@ -27,6 +27,7 @@ let database: pg.Pool;
 const createdUsers: string[] = [];
 let disclosureBefore: string | null = null;
 let hadSettingsRow = false;
+let translationsBefore = {};
 
 before(async () => {
   database = await openTestDatabase();
@@ -34,10 +35,14 @@ before(async () => {
 
   // There is one settings row for the whole database. Whatever other tests
   // left in it is put back afterwards.
-  const existing = await database.query<{ consent_disclosure: string | null }>(
-    "select consent_disclosure from public.app_settings where id",
+  const existing = await database.query<{
+    consent_disclosure: string | null;
+    consent_disclosure_translations: object;
+  }>(
+    "select consent_disclosure, consent_disclosure_translations from public.app_settings where id",
   );
 
+  translationsBefore = existing.rows[0]?.consent_disclosure_translations ?? {};
   hadSettingsRow = existing.rows.length > 0;
   disclosureBefore = existing.rows[0]?.consent_disclosure ?? null;
 });
@@ -45,8 +50,8 @@ before(async () => {
 after(async () => {
   if (hadSettingsRow) {
     await database.query(
-      "update public.app_settings set consent_disclosure = $1 where id",
-      [disclosureBefore],
+      "update public.app_settings set consent_disclosure = $1, consent_disclosure_translations = $2 where id",
+      [disclosureBefore, JSON.stringify(translationsBefore)],
     );
   } else {
     await database.query("delete from public.app_settings where id");
@@ -271,4 +276,62 @@ test("with no disclosure of its own the built-in one is used and no text is kept
   );
 
   assert.equal(consented.rows[0]?.metadata.disclosureText, undefined);
+});
+
+test("translated disclosures are isolated, versioned and recorded in their actual language", async () => {
+  await saveSettings(
+    {
+      consentDisclosure: "English disclosure.",
+      consentDisclosureTranslations: {
+        es: "## Firma con {sender}\nAcepto estos términos.",
+      },
+    },
+    database,
+  );
+  const english = await sentEnvelope();
+  const spanish = await sentEnvelope();
+  await database.query(
+    "update signers set language = 'es' where envelope_id = $1",
+    [spanish.envelopeId],
+  );
+  const en = await getSigningPayloadForToken(english.token, { database });
+  const es = await getSigningPayloadForToken(spanish.token, { database });
+  assert.equal(en.disclosure.language, "en");
+  assert.equal(en.disclosure.sections[0]?.text, "English disclosure.");
+  assert.equal(es.disclosure.language, "es");
+  assert.equal(es.disclosure.sections[0]?.text, "Acepto estos términos.");
+  await saveSettings(
+    { consentDisclosureTranslations: { es: "Texto actualizado." } },
+    database,
+  );
+  await assert.rejects(
+    recordSignerConsent(
+      spanish.token,
+      { language: "es", disclosureVersion: es.disclosure.version },
+      { database },
+    ),
+    SigningMutationError,
+  );
+  const updated = await getSigningPayloadForToken(spanish.token, { database });
+  await recordSignerConsent(
+    spanish.token,
+    { language: "es", disclosureVersion: updated.disclosure.version },
+    { database },
+  );
+  const audit = await database.query(
+    "select metadata from audit_events where envelope_id = $1 and event = 'consented'",
+    [spanish.envelopeId],
+  );
+  assert.equal(audit.rows[0].metadata.disclosureLanguage, "es");
+  assert.equal(audit.rows[0].metadata.disclosureText, "Texto actualizado.");
+  assert.equal(audit.rows[0].metadata.language, "es");
+  await saveSettings({ consentDisclosureTranslations: { es: null } }, database);
+  const fallback = await getSigningPayloadForToken(spanish.token, { database });
+  assert.equal(fallback.disclosure.language, "en");
+  assert.equal(fallback.disclosure.sections[0]?.text, "English disclosure.");
+  assert.equal(
+    (await getSigningPayloadForToken(english.token, { database })).disclosure
+      .version,
+    en.disclosure.version,
+  );
 });

@@ -67,7 +67,9 @@ export function buildElectronicRecordsDisclosure(
   party: DisclosureParty,
   locale: SignerLocale = "en",
 ): DisclosureSection[] {
-  return standardSections(party.senderName, contactFor(party, locale), locale);
+  // This branch supplies only the English legal starting text.
+  void locale;
+  return standardSections(party.senderName, contactFor(party, "en"), "en");
 }
 
 /**
@@ -165,7 +167,7 @@ export function buildDisclosureSections(
     return buildElectronicRecordsDisclosure(party, locale);
   }
 
-  const contact = contactFor(party);
+  const contact = contactFor(party, locale);
   const sections: DisclosureSection[] = [];
 
   for (const paragraph of splitParagraphs(normalized)) {
@@ -179,7 +181,8 @@ export function buildDisclosureSections(
     }
 
     sections.push({
-      heading: body.length > 0 ? fillPlaceholders(heading ?? "", party) : "",
+      heading:
+        body.length > 0 ? fillPlaceholders(heading ?? "", party, contact) : "",
       text: fillPlaceholders(text, party, contact),
     });
   }

@@ -93,7 +93,7 @@ export function PublicLegalFooter({
   });
 
   return (
-    <footer className={cn("relative z-10", className)}>
+    <footer lang={locale} className={cn("relative z-10", className)}>
       <div className={cn("page-width py-7", contentClassName)}>
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-[0.8125rem] text-(--tertiary)">

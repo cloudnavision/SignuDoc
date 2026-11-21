@@ -20,6 +20,8 @@ test("English invitation and legacy certificate match upstream snapshots", async
     locale: "en" as const,
   };
   const invitation = buildSigningInvitationEmail(input);
+  assert.ok(invitation.htmlBody);
+  assert.match(invitation.htmlBody, /^<!doctype html><html lang="en">/);
   const bytes = await renderEnvelopeCertificatePdf(
     {
       envelope: {
@@ -67,7 +69,15 @@ test("English invitation and legacy certificate match upstream snapshots", async
   }
   await pdf.destroy();
   const snapshot = {
-    invitation,
+    invitation: {
+      ...invitation,
+      htmlBody: invitation.htmlBody
+        .replace(
+          /^<!doctype html><html lang="en"><head><meta charset="utf-8"><\/head><body>/,
+          "",
+        )
+        .replace(/<\/body><\/html>$/, ""),
+    },
     certificate: pages.join("\n").replace(/\s+/g, " ").trim(),
   };
   const file = new URL(

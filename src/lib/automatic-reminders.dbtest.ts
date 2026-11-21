@@ -14,7 +14,10 @@ import {
   changeEnvelopeReminders,
   EnvelopeMutationError,
 } from "./envelopes.ts";
-import { sendAutomaticEnvelopeReminder } from "./reminders.ts";
+import {
+  sendManualEnvelopeNudge,
+  sendAutomaticEnvelopeReminder,
+} from "./reminders.ts";
 import { verifyAuditChain } from "./services/audit.ts";
 import type {
   EmailService,
@@ -381,3 +384,45 @@ test("only the owner changes reminders, and only while the envelope is out", asy
       error instanceof EnvelopeMutationError && error.statusCode === 409,
   );
 });
+
+for (const kind of ["manual", "automatic"] as const) {
+  test(`${kind} settings failure leaves the existing link and audit untouched`, async () => {
+    const due = await createSentEnvelope({ reminderIntervalDays: 3 });
+    const before = await readSigner(due.signerId);
+    const { service, sent } = recordingEmailService();
+    const failing = new Proxy(database, {
+      get(target, property) {
+        if (property === "query")
+          return (sql: unknown, ...args: unknown[]) => {
+            if (
+              typeof sql === "string" &&
+              sql.includes("from public.app_settings")
+            )
+              return Promise.reject(new Error("settings unavailable"));
+            return Reflect.apply(target.query, target, [sql, ...args]);
+          };
+        const value = Reflect.get(target, property, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const options = {
+      database: failing,
+      emailService: service,
+      nowUnixTimestamp: SENT_AT + 4 * DAY,
+    };
+    await assert.rejects(
+      kind === "automatic"
+        ? sendAutomaticEnvelopeReminder(due.envelopeId, options)
+        : sendManualEnvelopeNudge(
+            due.userId,
+            due.envelopeId,
+            { senderEmail: "sam@example.test", senderName: "Sam" },
+            options,
+          ),
+      /settings unavailable/,
+    );
+    assert.deepEqual(await readSigner(due.signerId), before);
+    assert.deepEqual(await auditEvents(due.envelopeId), []);
+    assert.equal(sent.length, 0);
+  });
+}

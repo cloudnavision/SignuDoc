@@ -109,6 +109,9 @@ export function OrganizationSettings({
 }: OrganizationSettingsProps) {
   const router = useRouter();
   const [values, setValues] = useState(initialSettings);
+  const [savedSettings, setSavedSettings] = useState(initialSettings);
+  const [disclosureLanguage, setDisclosureLanguage] =
+    useState<OrganizationSettingsView["signerLanguage"]>("en");
   const [errors, setErrors] = useState<FormErrors>({});
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -210,6 +213,7 @@ export function OrganizationSettings({
           allowedEmailDomains: values.allowedEmailDomains,
           brandColor: values.brandColor,
           consentDisclosure: values.consentDisclosure,
+          consentDisclosureLanguage: disclosureLanguage,
           consentDisclosureAcknowledged: disclosureNoticeAgreed,
           organizationName: values.organizationName,
           privacyUrl: values.privacyUrl,
@@ -236,8 +240,15 @@ export function OrganizationSettings({
         return;
       }
 
-      setValues(payload.settings);
-      setSavedConsentDisclosure(payload.settings.consentDisclosure);
+      setSavedSettings(payload.settings);
+      const savedText =
+        disclosureLanguage === "en"
+          ? payload.settings.consentDisclosure
+          : (payload.settings.consentDisclosureTranslations[
+              disclosureLanguage
+            ] ?? "");
+      setValues({ ...payload.settings, consentDisclosure: savedText });
+      setSavedConsentDisclosure(savedText);
       setEmailRevision((revision) => revision + 1);
       setFeedback({ message: "Organization settings saved.", tone: "success" });
       // The header and the accent color come from the layout around this
@@ -487,12 +498,44 @@ export function OrganizationSettings({
                 <p className="max-w-2xl text-sm leading-6 text-(--secondary)">
                   Optional. Signers read this and tick a box to agree to use
                   electronic records and signatures before they sign. Leave it
-                  empty to use the standard text, or press &ldquo;Start from the
-                  standard text&rdquo; to edit it. The words each signer saw are
-                  kept with their record.
+                  empty to use the English disclosure. Only an English starting
+                  text is supplied. You are responsible for each translation.
+                  The words and disclosure language each signer saw are kept
+                  with their record. Save changes before switching languages.
                 </p>
               </div>
               <Field className="gap-2 text-sm">
+                <FieldLabel htmlFor="disclosure-language">
+                  Disclosure language
+                </FieldLabel>
+                <select
+                  id="disclosure-language"
+                  className="rounded-xl border border-(--border) bg-(--surface) px-4 py-3"
+                  value={disclosureLanguage}
+                  disabled={
+                    isSaving ||
+                    values.consentDisclosure !== savedConsentDisclosure
+                  }
+                  onChange={(event) => {
+                    const language = event.target
+                      .value as OrganizationSettingsView["signerLanguage"];
+                    const text =
+                      language === "en"
+                        ? savedSettings.consentDisclosure
+                        : (savedSettings.consentDisclosureTranslations[
+                            language
+                          ] ?? "");
+                    setDisclosureLanguage(language);
+                    setConsentDisclosure(text);
+                    setSavedConsentDisclosure(text);
+                  }}
+                >
+                  {signerLanguageOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 <FieldLabel
                   className="text-[0.8125rem] font-semibold text-(--secondary)"
                   htmlFor="consent-disclosure"
@@ -509,6 +552,7 @@ export function OrganizationSettings({
                   }
                   disabled={isSaving}
                   id="consent-disclosure"
+                  lang={disclosureLanguage}
                   maxLength={6000}
                   name="consent-disclosure"
                   onChange={(event) => setConsentDisclosure(event.target.value)}
@@ -545,7 +589,7 @@ export function OrganizationSettings({
                   }
                   variant="secondary"
                 >
-                  Start from the standard text
+                  Start from the English standard text
                 </ShellButton>
                 {values.consentDisclosure.length > 0 ? (
                   <ShellButton
@@ -553,7 +597,9 @@ export function OrganizationSettings({
                     onClick={() => setConsentDisclosure("")}
                     variant="ghost"
                   >
-                    Use the standard text
+                    {disclosureLanguage === "en"
+                      ? "Use the standard text"
+                      : "Use the English disclosure"}
                   </ShellButton>
                 ) : null}
               </div>

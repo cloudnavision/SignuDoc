@@ -54,6 +54,7 @@ export const signingVisibleFieldSchema = signingFieldBaseSchema.extend({
 });
 
 export const signingDisclosureSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES).optional(),
   sections: z.array(
     z.object({
       // Empty when the section is a plain paragraph with no heading.

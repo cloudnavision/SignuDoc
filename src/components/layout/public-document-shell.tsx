@@ -68,7 +68,7 @@ function PublicDocumentPage({
   title,
 }: PublicDocumentShellProps) {
   return (
-    <div className="flex min-h-screen flex-col text-(--fg)">
+    <div lang={locale} className="flex min-h-screen flex-col text-(--fg)">
       <header>
         <div className="page-width flex items-center justify-between gap-4 py-4">
           <Brand href="/" />

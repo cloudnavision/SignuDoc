@@ -7,6 +7,7 @@ import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
 import { type SignerLocale, type SignerMessageKey, t } from "@/lib/i18n";
+import { verificationErrorMessage } from "@/lib/signing-verification-messages";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
 
 type Method = SigningVerificationState["required"][number];
@@ -74,16 +75,16 @@ export function SignerVerificationScreen({
       } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? t(locale, "verify.sendError"));
+        setError(
+          verificationErrorMessage(locale, response.status, "send", method),
+        );
         return;
       }
 
       const maskedEmail = payload?.maskedEmail ?? state.maskedEmail;
 
       if (payload?.sent === false) {
-        setNotice(
-          `A code was already sent to ${maskedEmail} less than a minute ago, so no new email went out. Use that code, or send a new one when the countdown on the button ends.`,
-        );
+        setNotice(t(locale, "verify.cooldown", { email: maskedEmail }));
         const seconds = Math.max(1, Math.ceil(payload.retryAfterSeconds ?? 60));
 
         setResendAt(Date.now() + seconds * 1000);
@@ -118,12 +119,11 @@ export function SignerVerificationScreen({
         headers: { "content-type": "application/json" },
         method: "POST",
       });
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? t(locale, "verify.checkError"));
+        setError(
+          verificationErrorMessage(locale, response.status, "check", method),
+        );
         return;
       }
 
@@ -154,9 +154,7 @@ export function SignerVerificationScreen({
 
       setResendAt(null);
       setResendWait(0);
-      setNotice(
-        `A code was sent to ${state.maskedEmail}. If it has not arrived, you can send a new one now.`,
-      );
+      setNotice(t(locale, "verify.resendReady", { email: state.maskedEmail }));
     }
 
     const timer = window.setInterval(tick, 1000);
@@ -167,13 +165,13 @@ export function SignerVerificationScreen({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [resendAt, state.maskedEmail]);
+  }, [locale, resendAt, state.maskedEmail]);
 
   const copy = METHOD_COPY[method];
   const step = state.required.indexOf(method) + 1;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div lang={locale} className="flex min-h-screen flex-col">
       <header>
         <div className="page-width flex items-center py-4">
           <Brand href="/" />
@@ -263,7 +261,7 @@ export function SignerVerificationScreen({
                   {!notice
                     ? t(locale, "verify.emailMeCode")
                     : resendWait > 0
-                      ? `Send a new code in ${String(resendWait)}s`
+                      ? t(locale, "verify.resendWait", { seconds: resendWait })
                       : t(locale, "verify.sendNewCode")}
                 </ShellButton>
               ) : null}

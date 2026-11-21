@@ -35,6 +35,29 @@ test("Spanish and English signers receive their own language through signing and
     } else {
       await signInAsAdministrator(page);
     }
+    await page.goto("/settings#organization");
+    await page.getByLabel("Disclosure language").selectOption("es");
+    await page
+      .getByLabel("Disclosure text")
+      .fill("## Acuerdo de prueba\nTexto español del administrador.");
+    await page
+      .getByRole("button", { name: "Save organization settings" })
+      .click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "I agree" })
+      .click();
+    await expect(page.getByText("Organization settings saved.")).toBeVisible();
+    await page.getByLabel("Disclosure language").selectOption("en");
+    await expect(page.getByLabel("Disclosure text")).toHaveValue("");
+    await page.getByLabel("Disclosure language").selectOption("es");
+    await expect(page.getByLabel("Disclosure text")).toHaveValue(
+      "## Acuerdo de prueba\nTexto español del administrador.",
+    );
+    await page.screenshot({
+      path: testInfo.outputPath("disclosure-editor.png"),
+      fullPage: true,
+    });
     await page.goto("/envelopes/new");
     await page.getByLabel("Envelope title").fill("Mixed language agreement");
     await page
@@ -94,13 +117,58 @@ test("Spanish and English signers receive their own language through signing and
       expect(invitation.subject).toContain(
         index === 0 ? "le pide su firma" : "requested your signature",
       );
+      expect(invitation.html).toContain(`<html lang="${language}">`);
       const context = await browser.newContext();
       const signerPage = await context.newPage();
-      await signerPage.goto(extractLink(invitation.text, "/sign/"));
+      const signingUrl = extractLink(invitation.text, "/sign/");
+      if (language === "es") {
+        await database.query(
+          "update signers set require_email_code=true where id=$1",
+          [signers.rows[index].id],
+        );
+        await signerPage.goto(signingUrl);
+        await expect(signerPage.getByRole("heading", { level: 1 })).toHaveText(
+          t(language, "verify.title"),
+        );
+        await expect(signerPage.locator("div[lang=es]").first()).toBeVisible();
+        await signerPage.route("**/verify", (route) =>
+          route.fulfill({
+            status: 500,
+            json: { error: "English internal server error must never appear" },
+          }),
+        );
+        await signerPage
+          .getByLabel(t(language, "verify.emailCodeLabel"))
+          .fill("123456");
+        await signerPage
+          .getByRole("button", {
+            name: t(language, "verify.continue"),
+            exact: true,
+          })
+          .click();
+        await expect(
+          signerPage.getByRole("main").getByRole("alert"),
+        ).toHaveText(t(language, "verify.checkError"));
+        await signerPage.unroute("**/verify");
+        await database.query(
+          "update signers set require_email_code=false where id=$1",
+          [signers.rows[index].id],
+        );
+      }
+      await signerPage.goto(signingUrl);
       const consent = signerPage.getByRole("dialog", {
         name: t(language, "consentDialog.title"),
       });
       await expect(consent).toContainText(t(language, "disclosure.consent"));
+      await expect(consent).toHaveAttribute("lang", language);
+      if (language === "es")
+        await expect(consent.locator(".well")).toContainText(
+          "Texto español del administrador.",
+        );
+      await signerPage.screenshot({
+        path: testInfo.outputPath(`consent-${language}.png`),
+        fullPage: true,
+      });
       await consent.getByRole("checkbox").check();
       await consent
         .getByRole("button", { name: t(language, "consentDialog.agree") })
@@ -133,6 +201,24 @@ test("Spanish and English signers receive their own language through signing and
       await expect(signerPage.getByRole("heading", { level: 1 })).toContainText(
         t(language, "done.title"),
       );
+      await expect(signerPage.locator("div[lang]").first()).toHaveAttribute(
+        "lang",
+        language,
+      );
+      await expect(signerPage.locator("footer")).toHaveAttribute(
+        "lang",
+        language,
+      );
+      await signerPage.goto(signingUrl);
+      await expect(signerPage.locator("div[lang]").first()).toHaveAttribute(
+        "lang",
+        language,
+      );
+      await signerPage.goto(`/signer-privacy?language=${language}`);
+      await expect(signerPage.locator("footer")).toHaveAttribute(
+        "lang",
+        language,
+      );
       await context.close();
     }
     for (const [index, language] of (["es", "en"] as const).entries()) {
@@ -140,6 +226,7 @@ test("Spanish and English signers receive their own language through signing and
         template: "completion_notification",
         to: emails[index],
       });
+      expect(completion.html).toContain(`<html lang="${language}">`);
       expect(completion.subject).toBe(
         t(language, "email.completion.subject", {
           title: "Mixed language agreement",
@@ -155,10 +242,46 @@ test("Spanish and English signers receive their own language through signing and
         ),
       ].map((m) => m[0]);
       expect(links.length).toBeGreaterThanOrEqual(2);
+      const downloadToken = new URL(links[0]).pathname.split("/").at(-1)!;
+      await page.goto(`/download/${downloadToken}`);
+      await expect(page.locator("div[lang]").first()).toHaveAttribute(
+        "lang",
+        language,
+      );
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+        t(language, "download.expired.title"),
+      );
+      await expect(
+        page.getByRole("button", {
+          name: t(language, "download.renew.button"),
+        }),
+      ).toBeVisible();
+
       const evidence = await page.request.get(links[1]);
       expect(evidence.ok()).toBeTruthy();
       expect(certificate.ok()).toBeTruthy();
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const signedPdf = await pdfjs.getDocument({
+        data: new Uint8Array(await certificate.body()),
+        verbosity: 0,
+      }).promise;
+      let signedText = "";
+      for (let n = 1; n <= signedPdf.numPages; n++) {
+        const content = await (await signedPdf.getPage(n)).getTextContent();
+        signedText +=
+          " " +
+          content.items
+            .map((item: { str?: string }) => item.str ?? "")
+            .join(" ");
+      }
+      await signedPdf.destroy();
+      const dates = await database.query(
+        "select value from fields where envelope_id=$1 and type='date'",
+        [envelopeId],
+      );
+      for (const row of dates.rows)
+        expect(signedText.replace(/\s+/g, " ")).toContain(row.value);
+
       const pdf = await pdfjs.getDocument({
         data: new Uint8Array(await evidence.body()),
         verbosity: 0,
@@ -179,6 +302,9 @@ test("Spanish and English signers receive their own language through signing and
       expect(text).toContain(t("en", "disclosure.consent"));
     }
   } finally {
+    await database.query(
+      "update public.app_settings set consent_disclosure_translations = '{}'::jsonb where id",
+    );
     await database.end();
   }
 });

@@ -50,6 +50,7 @@ export type OrganizationSettingsView = {
   brandColor: string;
   /** The administrator's own disclosure, or empty for the built-in one. */
   consentDisclosure: string;
+  consentDisclosureTranslations: Partial<Record<SignerLocale, string | null>>;
   /** The built-in disclosure as a template, to start a custom one from. */
   defaultConsentDisclosure: string;
   hosted: boolean;
@@ -83,6 +84,7 @@ export function toOrganizationSettingsView(
     allowedEmailDomains: settings.allowedEmailDomains.join(", "),
     brandColor: settings.brandColor ?? "",
     consentDisclosure: settings.consentDisclosure ?? "",
+    consentDisclosureTranslations: settings.consentDisclosureTranslations ?? {},
     defaultConsentDisclosure: standardDisclosureTemplate(),
     hosted: settings.hosted,
     logoUrl:
@@ -156,6 +158,7 @@ const organizationSettingsSchema = z.object({
   // Left out means unchanged. The length is judged after tidying, below; this
   // only keeps an absurd request from getting that far.
   consentDisclosure: z.string().max(20_000).optional(),
+  consentDisclosureLanguage: z.enum(SIGNER_LANGUAGES).default("en"),
   // The administrator agreed to the notice about changing the disclosure.
   // Needed only when the saved words change to words of their own.
   consentDisclosureAcknowledged: z.boolean().optional(),
@@ -264,7 +267,10 @@ export async function updateOrganizationSettings(
 
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
-      const field = issue.path[0];
+      const field =
+        issue.path[0] === "consentDisclosureLanguage"
+          ? "consentDisclosure"
+          : issue.path[0];
 
       if (typeof field === "string" && field in FIELD_MESSAGES) {
         fieldErrors[field as OrganizationSettingsField] ??=
@@ -302,7 +308,14 @@ export async function updateOrganizationSettings(
   if (disclosureProblem !== null) {
     fieldErrors.consentDisclosure = disclosureProblem;
   } else if (
-    changesToOwnDisclosure(input.consentDisclosure, current) &&
+    changesToOwnDisclosure(input.consentDisclosure, {
+      consentDisclosure:
+        input.consentDisclosureLanguage === "en"
+          ? current.consentDisclosure
+          : (current.consentDisclosureTranslations?.[
+              input.consentDisclosureLanguage
+            ] ?? null),
+    }) &&
     input.consentDisclosureAcknowledged !== true
   ) {
     fieldErrors.consentDisclosure = CONSENT_DISCLOSURE_NOTICE_REQUIRED;
@@ -331,9 +344,18 @@ export async function updateOrganizationSettings(
             ...(input.consentDisclosure === undefined
               ? {}
               : {
-                  consentDisclosure: toStoredCustomDisclosure(
-                    input.consentDisclosure,
-                  ),
+                  ...(input.consentDisclosureLanguage === "en"
+                    ? {
+                        consentDisclosure: toStoredCustomDisclosure(
+                          input.consentDisclosure,
+                        ),
+                      }
+                    : {
+                        consentDisclosureTranslations: {
+                          [input.consentDisclosureLanguage]:
+                            toStoredCustomDisclosure(input.consentDisclosure),
+                        },
+                      }),
                 }),
             privacyUrl: input.privacyUrl,
             termsUrl: input.termsUrl,
@@ -354,6 +376,7 @@ const AUDITED_SETTINGS = [
   "allowedEmailDomains",
   "brandColor",
   "consentDisclosure",
+  "consentDisclosureTranslations",
   "organizationName",
   "privacyUrl",
   "retentionDays",

@@ -35,13 +35,35 @@ the language upstream used before this layer. Unknown links also use English;
 they cannot borrow a new install default. Privacy links carry a language when
 needed, without including a signing token.
 
-This is round one of issue #200. Per-language administrator disclosures and
-the remaining PR #121 reminder-recovery and verification-error work follow
-inside the draft, along with maintainer feedback. The required date and
-privacy/decline language propagation overlaps those review findings and is
-included here. Czech, Bulgarian and French catalogues are separate changes;
-no Czech legal text is shipped here.
+Administrators edit a disclosure for each supported language under Settings,
+Organization. The existing `consent_disclosure` remains the English text;
+`consent_disclosure_translations` stores administrator-authored translations.
+The selected language alone is updated, under the settings row lock. Changing
+a translation requires the same legal-responsibility acknowledgement as English.
+Only the English starting text ships. A missing translation uses the English
+custom disclosure, or the English standard if no custom text exists. The
+rendered disclosure declares its actual language, and consent audit metadata
+records `disclosureLanguage` separately from the signer's interface/statement
+`language`. Changes to resolved custom words invalidate a stale consent version.
+Hosted mode continues to use the standard English disclosure.
+
+Signing screens, dialog portals, privacy/download pages and signer email HTML
+documents declare their language. Sender and administrator mail stays English.
+Verification failures select catalogue messages by HTTP status; raw server
+error prose is never displayed. Manual and automatic reminders read settings
+inside their error boundary before replacing the current signing link.
+
+The English `declinedConfirmation` export is retained for compatibility with
+external imports. Rendered decline screens use the signer's own locale.
+
+Both implementation rounds of issue #200 are included; the PR remains a draft.
+Czech, Bulgarian and French catalogues and further legal starting texts are
+separate changes. No Czech legal text is shipped here.
 
 Validation includes a mixed Spanish/English database test and browser test,
 plural and fallback tests, and English invitation/certificate snapshots taken
 from upstream `9476cc59941c38ec70fa99240f805bdbfa4b9176`.
+
+The upstream English invitation body/text and legacy certificate text remain
+snapshot-identical. The invitation now has a document wrapper with `lang="en"`;
+the snapshot test asserts that wrapper separately before comparing its body.

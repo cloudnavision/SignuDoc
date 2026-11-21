@@ -21,7 +21,7 @@ export function SigningDoneShell({
       : t(locale, "done.fallbackTitle");
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div lang={locale} className="flex min-h-screen flex-col">
       <header>
         <div className="page-width flex items-center py-4">
           <Brand href="/" />
