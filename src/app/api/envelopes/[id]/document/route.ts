@@ -32,7 +32,7 @@ export async function GET(
   const { id } = await context.params;
 
   try {
-    // Its sender's, or any envelope for an administrator.
+    // Its sender's, or, once sent, a teammate's or any administrator's.
     const access = await resolveEnvelopeViewerAccess(
       session.user.id,
       id,
@@ -45,9 +45,9 @@ export async function GET(
     );
 
     if (access && !access.viewerIsOwner) {
-      // An administrator opening someone else's document is on record in
-      // the install's audit trail, as a download of its files is. No
-      // record, no file.
+      // An administrator or a teammate opening someone else's document is
+      // on record in the install's audit trail, as a download of its files
+      // is. No record, no file.
       await recordSystemAuditEvent({
         actorEmail: session.user.email,
         actorUserId: session.user.id,
