@@ -51,11 +51,14 @@ type EnvelopeDetailShellProps = {
   envelopeId: string;
   initialState?: "error" | "not-found";
   /**
-   * Who sent it, when an administrator is looking at another member's
-   * envelope. They can read it, download its files and delete it once it
-   * is finished; the rest stays with its sender.
+   * Who sent it, when an administrator or a teammate is looking at another
+   * member's envelope. They can read it and download its files, and an
+   * administrator can delete it once it is finished; the rest stays with
+   * its sender.
    */
   ownerLabel?: string;
+  /** The dashboard view to go back to from someone else's envelope. */
+  ownerListView?: "all" | "team";
   record?: EnvelopeDetailData;
   scheduledDeletion?: EnvelopeDeletionNotice;
 };
@@ -150,6 +153,7 @@ export function EnvelopeDetailShell({
   envelopeId,
   initialState,
   ownerLabel,
+  ownerListView = "all",
   record,
   scheduledDeletion,
 }: EnvelopeDetailShellProps) {
@@ -554,9 +558,15 @@ export function EnvelopeDetailShell({
       <section className="panel p-5 sm:p-8" data-animate="enter">
         <Link
           className="inline-flex items-center text-sm font-semibold text-(--secondary) transition hover:text-(--accent-ink)"
-          href={isOwnEnvelope ? "/dashboard" : "/dashboard?view=all"}
+          href={
+            isOwnEnvelope ? "/dashboard" : `/dashboard?view=${ownerListView}`
+          }
         >
-          {isOwnEnvelope ? "← Documents" : "← All envelopes"}
+          {isOwnEnvelope
+            ? "← Documents"
+            : ownerListView === "team"
+              ? "← Team envelopes"
+              : "← All envelopes"}
         </Link>
 
         <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">

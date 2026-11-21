@@ -91,6 +91,17 @@ Thank you to @carefulcomputer, who built the editable consent disclosure in
 the hosted service on the standard words. It gave this release its headline
 feature, and the E-SIGN notice was added on top of their work.
 
+### Teams
+
+- Teams. An administrator makes teams in Settings and puts people on them.
+  People on a team see the envelopes their teammates have sent, read-only,
+  in a "My team" view on the dashboard, and can download their audit trail
+  and, once finished, the signed PDF and certificate. Drafts stay private,
+  and only the sender changes an envelope. Team changes and teammates'
+  downloads are recorded in the site audit trail. See
+  [docs/teams.md](docs/teams.md). This changes the database
+  (`20261121100000_teams.sql`).
+
 ## [0.7.0] - 2026-11-20
 
 A sender can now send one template to many people at once from a CSV. Two

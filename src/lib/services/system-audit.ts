@@ -53,6 +53,11 @@ export const systemAuditEventTypes = [
   "envelope_file_downloaded",
   "envelope_deletion_scheduled",
   "envelope_deletion_cancelled",
+  "team_created",
+  "team_updated",
+  "team_deleted",
+  "team_member_added",
+  "team_member_removed",
 ] as const;
 
 export type SystemAuditEventType = (typeof systemAuditEventTypes)[number];

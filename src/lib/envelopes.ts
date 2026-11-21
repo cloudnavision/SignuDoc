@@ -126,7 +126,7 @@ import {
   getManualNudgeAvailableAt,
   isManualNudgeAvailable,
 } from "./services/reminders.ts";
-import { formatEnvelopeOwner } from "./envelope-access.ts";
+import { formatEnvelopeOwner, sharesTeamCondition } from "./envelope-access.ts";
 import { PERMITTED_USE_VERSION } from "./permitted-uses.ts";
 import { hashAccessCode } from "./signer-checks.ts";
 import {
@@ -345,7 +345,7 @@ export type DashboardEnvelopeListItem = {
   expired?: boolean;
   id: string;
   searchableEmails: readonly string[];
-  /** Who sent it, in an administrator's list of every envelope. */
+  /** Who sent it, in a team's list or in an administrator's of all. */
   senderLabel?: string;
   status: EnvelopeRecord["status"];
   /** What the status pill says: the status, or how far signing has got. */
@@ -1911,7 +1911,20 @@ export async function listEnvelopesForUser(
   filters: Partial<EnvelopeListFilters> = {},
   database: DbExecutor = getDb(),
 ): Promise<DashboardEnvelopePage> {
-  return listEnvelopes(userId, filters, database);
+  return listEnvelopes(userId, "mine", filters, database);
+}
+
+/**
+ * One's own envelopes and the sent ones of everyone on a team with them,
+ * each with its sender. Teammates' drafts are left out: a draft is its
+ * sender's own until it is sent.
+ */
+export async function listTeamEnvelopesForUser(
+  userId: string,
+  filters: Partial<EnvelopeListFilters> = {},
+  database: DbExecutor = getDb(),
+): Promise<DashboardEnvelopePage> {
+  return listEnvelopes(userId, "team", filters, database);
 }
 
 /**
@@ -1924,22 +1937,34 @@ export async function listAllEnvelopesForAdmin(
   filters: Partial<EnvelopeListFilters> = {},
   database: DbExecutor = getDb(),
 ): Promise<DashboardEnvelopePage> {
-  return listEnvelopes(null, filters, database, adminUserId);
+  return listEnvelopes(adminUserId, "all", filters, database);
+}
+
+/** Whose envelopes a list shows: the viewer's, their teams', or all. */
+type EnvelopeListScope = "all" | "mine" | "team";
+
+function envelopeListScopeClause(scope: EnvelopeListScope): string {
+  switch (scope) {
+    case "mine":
+      return "user_id = $1";
+    case "team":
+      return `(user_id = $1 OR (status <> 'draft' AND ${sharesTeamCondition("$1")}))`;
+    case "all":
+      return "(status <> 'draft' OR user_id = $1)";
+  }
 }
 
 async function listEnvelopes(
-  ownerUserId: string | null,
+  viewerUserId: string,
+  scope: EnvelopeListScope,
   filters: Partial<EnvelopeListFilters>,
   database: DbExecutor,
-  adminUserId?: string,
 ): Promise<DashboardEnvelopePage> {
   const parsedFilters = envelopeListFiltersSchema.parse(filters);
-  const values: unknown[] =
-    ownerUserId === null ? [adminUserId ?? ""] : [ownerUserId];
-  const clauses =
-    ownerUserId === null
-      ? ["(status <> 'draft' OR user_id = $1)"]
-      : ["user_id = $1"];
+  // Lists of other people's envelopes name and search each sender.
+  const showsSenders = scope !== "mine";
+  const values: unknown[] = [viewerUserId];
+  const clauses = [envelopeListScopeClause(scope)];
   let nextParamIndex = values.length + 1;
 
   if (parsedFilters.status) {
@@ -1959,8 +1984,8 @@ async function listEnvelopes(
           WHERE signers.envelope_id = envelopes.id
             AND lower(signers.email) LIKE ${searchPlaceholder} ESCAPE '\\'
         )${
-          // Across the install, the sender too.
-          ownerUserId === null
+          // Across a team or the install, the sender too.
+          showsSenders
             ? `
         OR EXISTS (
           SELECT 1
@@ -2029,13 +2054,12 @@ async function listEnvelopes(
       listFieldsForEnvelopeIds(envelopeIds, database),
       listCopyRecipientsForEnvelopeIds(envelopeIds, database),
     ]);
-  const sendersById =
-    ownerUserId === null
-      ? await listSendersById(
-          envelopes.map((envelope) => envelope.userId),
-          database,
-        )
-      : null;
+  const sendersById = showsSenders
+    ? await listSendersById(
+        envelopes.map((envelope) => envelope.userId),
+        database,
+      )
+    : null;
 
   const items = envelopes.map((envelope) => {
     const signers = signersByEnvelope.get(envelope.id) ?? [];
@@ -2061,7 +2085,7 @@ async function listEnvelopes(
       searchableEmails: [
         ...signers,
         ...(copyRecipientsByEnvelope.get(envelope.id) ?? []),
-        // Across the install, the sender too.
+        // Across a team or the install, the sender too.
         ...(sender ? [sender] : []),
       ].map((recipient) => recipient.email),
       status: envelope.status,
