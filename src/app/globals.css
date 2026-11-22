@@ -291,6 +291,18 @@
   }
 
   /* A row of choices where one is selected: filters, draw or type. */
+  /* A field box on the page: its text is sized to it by FittedFieldText. */
+  .field-box {
+    container-type: size;
+  }
+
+  /* Hidden only in a box too small for any readable text. */
+  @container (max-height: 10px) or (max-width: 20px) {
+    .field-fit-text {
+      display: none;
+    }
+  }
+
   .segmented {
     display: inline-flex;
     max-width: 100%;

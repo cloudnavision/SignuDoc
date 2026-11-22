@@ -129,6 +129,7 @@ import {
   routeAfterSignatures,
   signingStepOf,
 } from "./signing-steps.ts";
+import { type DateFormat, formatSigningDate } from "./signing-date.ts";
 
 export type SigningRequestMeta = {
   ipAddress?: string | null;
@@ -196,6 +197,7 @@ type SigningSignerRow = {
 type SigningFieldRow = {
   checked: boolean | null;
   createdAt: number;
+  dateFormat: DateFormat | null;
   envelopeId: string;
   groupId: string | null;
   height: number;
@@ -530,6 +532,7 @@ function mapFieldRow(row: SigningFieldRow) {
     checked: row.checked,
     createdAt: row.createdAt,
     envelopeId: row.envelopeId,
+    dateFormat: row.dateFormat ?? undefined,
     groupId: row.groupId ?? undefined,
     height: row.height,
     id: row.id,
@@ -707,6 +710,7 @@ async function listFieldRows(
         checked,
         options,
         group_id AS "groupId",
+        date_format AS "dateFormat",
         submitted_at AS "submittedAt",
         created_at AS "createdAt",
         updated_at AS "updatedAt"
@@ -903,22 +907,6 @@ async function buildImageDataUrl(
   const imageObject = await storageService.getObject(imageKey);
 
   return `data:${imageObject.contentType ?? "image/png"};base64,${Buffer.from(imageObject.body).toString("base64")}`;
-}
-
-function formatLocalSigningDate(
-  submittedAt: number,
-  timezoneOffsetMinutes: number,
-): string {
-  const localDateTime = new Date(
-    submittedAt * 1000 - timezoneOffsetMinutes * 60 * 1000,
-  );
-
-  return new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-    year: "numeric",
-  }).format(localDateTime);
 }
 
 function parsePngDataUrl(dataUrl: string): Uint8Array {
@@ -2076,6 +2064,7 @@ export async function getSigningPayloadForToken(
   const currentSignerFields = context.fields
     .filter((field) => field.signerId === context.signer.id)
     .map((field) => ({
+      dateFormat: field.dateFormat,
       groupId: field.groupId,
       height: field.height,
       id: field.id,
@@ -2445,10 +2434,6 @@ function buildSignerSubmission(
 
   // Names this submission's drawn signatures apart from any other's.
   const submissionId = randomUUID();
-  const localDateValue = formatLocalSigningDate(
-    submittedAt,
-    parsedInput.clientTimezoneOffsetMinutes,
-  );
   const drawnSignatureUploads: Array<{
     body: Uint8Array;
     imageKey: string;
@@ -2516,7 +2501,11 @@ function buildSignerSubmission(
         imageKey: null,
         inputMethod: "auto",
         submittedAt,
-        value: localDateValue,
+        value: formatSigningDate(
+          submittedAt * 1000,
+          parsedInput.clientTimezoneOffsetMinutes,
+          field.dateFormat,
+        ),
       });
       continue;
     }

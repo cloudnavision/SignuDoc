@@ -38,6 +38,12 @@ import {
 } from "@/lib/field-choices";
 import { getInitials } from "@/lib/initials";
 import {
+  type DateFormat,
+  dateFormatLabels,
+  dateFormats,
+  formatSigningDate,
+} from "@/lib/signing-date";
+import {
   type FieldPlacement,
   type ReplaceFieldsResponse,
 } from "@/lib/schemas/field";
@@ -81,6 +87,7 @@ type PrepareField = FieldPlacement & {
 };
 
 type LiveFieldSource = Array<{
+  dateFormat?: DateFormat;
   groupId?: string;
   height: number;
   id: string;
@@ -134,6 +141,7 @@ type FieldEditorProps = {
   groupSize: number;
   onAddRadioButton: () => void;
   onDelete: () => void;
+  onSetDateFormat: (dateFormat: DateFormat) => void;
   onSetLabel: (label: string | undefined) => void;
   onSetOptions: (options: string[]) => void;
   onSetRequired: (required: boolean) => void;
@@ -167,7 +175,7 @@ const fieldTools: readonly FieldTool[] = [
   },
   {
     defaultHeight: 0.045,
-    defaultWidth: 0.12,
+    defaultWidth: 0.2,
     label: "Date",
     minHeight: 0.0045,
     minWidth: 0.006,
@@ -284,6 +292,7 @@ function buildLiveFields(
   fields: LiveFieldSource | PrepareEnvelopeData["fields"],
 ) {
   return fields.map((field, index) => ({
+    dateFormat: field.dateFormat,
     groupId: field.groupId,
     height: field.height,
     id: field.id ?? `field-${index + 1}`,
@@ -343,6 +352,7 @@ function clearSelectedFieldFromViewportClick(
 function buildFieldRequest(fields: readonly PrepareField[]) {
   return {
     fields: fields.map((field) => ({
+      dateFormat: field.type === "date" ? field.dateFormat : undefined,
       groupId: field.type === "radio" ? field.groupId : undefined,
       height: roundNormalized(field.height),
       id: field.id,
@@ -523,6 +533,8 @@ function PrepareLiveShellContent({
           addRadioButton(selectedField.id, setFields, setSelectedFieldId),
         onDelete: () =>
           deleteField(selectedField.id, setFields, setSelectedFieldId),
+        onSetDateFormat: (dateFormat: DateFormat) =>
+          setDateFormat(selectedField.id, dateFormat, setFields),
         onSetLabel: (label: string | undefined) =>
           updateField(selectedField.id, { label }, setFields),
         onSetOptions: (options: string[]) =>
@@ -1181,7 +1193,9 @@ function PrepareLiveShellContent({
                           label={
                             field.type === "radio" && field.label
                               ? `Radio button: ${field.label}`
-                              : getFieldTool(field.type).placeholderLabel
+                              : field.type === "date" && field.dateFormat
+                                ? dateFormatLabels[field.dateFormat]
+                                : getFieldTool(field.type).placeholderLabel
                           }
                           onInteractionChange={setIsFieldInteracting}
                           onMove={(deltaX, deltaY) =>
@@ -1669,6 +1683,7 @@ function FieldEditor({
   groupSize,
   onAddRadioButton,
   onDelete,
+  onSetDateFormat,
   onSetLabel,
   onSetOptions,
   onSetRequired,
@@ -1818,6 +1833,35 @@ function FieldEditor({
           </div>
         ) : null}
 
+        {field.type === "date" ? (
+          <div>
+            <p className="px-1 text-[0.8125rem] font-semibold text-(--secondary)">
+              Stamps
+            </p>
+            <div className="segmented mt-2 flex w-full">
+              {dateFormats.map((format) => (
+                <button
+                  aria-pressed={(field.dateFormat ?? "date") === format}
+                  className="segmented-item flex-auto px-2.5 whitespace-nowrap"
+                  key={format}
+                  onClick={() => onSetDateFormat(format)}
+                  type="button"
+                >
+                  {dateFormatLabels[format]}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 px-1 text-xs leading-5 text-(--tertiary)">
+              Filled in when the signer signs, in their time zone. For example:{" "}
+              {formatSigningDate(
+                Date.UTC(2026, 10, 19, 14, 30),
+                0,
+                field.dateFormat,
+              )}
+            </p>
+          </div>
+        ) : null}
+
         {isOptionalField ? (
           <div>
             <p className="px-1 text-[0.8125rem] font-semibold text-(--secondary)">
@@ -1945,6 +1989,35 @@ function updateField(
     currentFields.map((field) =>
       field.id === fieldId ? { ...field, ...patch } : field,
     ),
+  );
+}
+
+// A date with the time is long, so its box is widened to fit it.
+const DATE_TIME_MIN_WIDTH = 0.34;
+
+function setDateFormat(
+  fieldId: string,
+  dateFormat: DateFormat,
+  setFields: Dispatch<SetStateAction<PrepareField[]>>,
+) {
+  setFields((currentFields) =>
+    currentFields.map((field) => {
+      if (field.id !== fieldId || field.type !== "date") {
+        return field;
+      }
+
+      const width =
+        dateFormat === "date_time"
+          ? Math.min(1, Math.max(field.width, DATE_TIME_MIN_WIDTH))
+          : field.width;
+
+      return {
+        ...field,
+        dateFormat: dateFormat === "date" ? undefined : dateFormat,
+        width,
+        x: Math.min(field.x, 1 - width),
+      };
+    }),
   );
 }
 

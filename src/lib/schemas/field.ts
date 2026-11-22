@@ -6,6 +6,7 @@ import {
   MAX_NUMBER_ENTRY_LENGTH,
   MAX_RADIO_GROUP_BUTTONS,
 } from "../field-choices.ts";
+import { dateFormats } from "../signing-date.ts";
 import { fieldInputMethods, fieldTypes } from "../types/domain.ts";
 import {
   idSchema,
@@ -44,8 +45,18 @@ export const fieldPlacementSchema = z
       .optional(),
     // The group a radio button belongs to. The signer picks one per group.
     groupId: z.string().trim().min(1).max(64).optional(),
+    // What a date field stamps. Left out, it stamps the day.
+    dateFormat: z.enum(dateFormats).optional(),
   })
   .superRefine((field, ctx) => {
+    if (field.dateFormat !== undefined && field.type !== "date") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Only date fields have a date format",
+        path: ["dateFormat"],
+      });
+    }
+
     if (field.options !== undefined && field.type !== "dropdown") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -13,6 +13,7 @@ import {
   optionalTrimmedString,
   unixTimestampSchema,
 } from "./common.ts";
+import { dateFormats } from "../signing-date.ts";
 
 export const signingUnavailableStateSchema = z.enum([
   "expired",
@@ -23,6 +24,8 @@ export const signingUnavailableStateSchema = z.enum([
 ]);
 
 const signingFieldBaseSchema = z.object({
+  /** What a date field stamps. Left out, the day. */
+  dateFormat: z.enum(dateFormats).optional(),
   /** The group a radio button belongs to. */
   groupId: z.string().trim().min(1).optional(),
   height: normalizedSizeSchema,

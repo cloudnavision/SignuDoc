@@ -21,6 +21,11 @@ import {
 } from "@/components/layout/nav-items";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import {
+  type DateFormat,
+  dateFormats,
+  formatSigningDate,
+} from "@/lib/signing-date";
+import {
   beginDocumentPanGesture,
   clampDocumentZoomLevel,
   DEFAULT_DOCUMENT_ZOOM_LEVEL,
@@ -39,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FittedFieldText } from "@/components/ui/fitted-field-text";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { SigningStateScreen } from "@/components/signing/signing-state-screen";
@@ -117,12 +123,6 @@ function shouldShowInlineFieldLabel(
     field.width >= compactFieldWidthThreshold &&
     field.height >= compactFieldHeightThreshold
   );
-}
-
-function shouldShowInlineFieldValue(
-  field: Pick<SigningCurrentField | SigningVisibleField, "height" | "width">,
-) {
-  return field.width >= 0.08 && field.height >= 0.03;
 }
 
 function getCanvasFieldLabel(
@@ -295,11 +295,14 @@ function getCompletionValue(
   fields: readonly SigningCurrentField[],
   {
     checkboxValues,
-    localDateLabel,
+    localDateLabels,
     signatureValues,
     signerName,
     textValues,
-  }: EnteredValues & { localDateLabel: string; signerName: string },
+  }: EnteredValues & {
+    localDateLabels: Record<DateFormat, string>;
+    signerName: string;
+  },
 ) {
   if (field.type === "signature" || field.type === "initials") {
     return signatureValues[field.id]?.value ?? "Tap to sign";
@@ -335,7 +338,7 @@ function getCompletionValue(
     return chosen ? getFieldLabel(chosen) : "Choose one";
   }
 
-  return localDateLabel;
+  return localDateLabels[field.dateFormat ?? "date"];
 }
 
 function isFieldComplete(
@@ -548,13 +551,32 @@ export function SigningLiveShell({
   const latestTextValuesRef = useRef(textValues);
   const [drawnSignatureVersion, setDrawnSignatureVersion] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(DEFAULT_DOCUMENT_ZOOM_LEVEL);
-  const [localDateLabel] = useState(() =>
-    new Intl.DateTimeFormat("en-US", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(new Date()),
+  // What each kind of date field will stamp. A time is kept current while
+  // the signer reads; the stamp itself is the moment they finish.
+  const [signingNow, setSigningNow] = useState(() => Date.now());
+  const showsTime = record.currentSignerFields.some(
+    (field) => field.type === "date" && (field.dateFormat ?? "date") !== "date",
   );
+  const localDateLabels = Object.fromEntries(
+    dateFormats.map((format) => [
+      format,
+      formatSigningDate(
+        signingNow,
+        new Date(signingNow).getTimezoneOffset(),
+        format,
+      ),
+    ]),
+  ) as Record<DateFormat, string>;
+
+  useEffect(() => {
+    if (!showsTime) {
+      return;
+    }
+
+    const timer = window.setInterval(() => setSigningNow(Date.now()), 15_000);
+
+    return () => window.clearInterval(timer);
+  }, [showsTime]);
   const paperGridRef = useRef<HTMLDivElement | null>(null);
   const documentPanGestureRef = useRef<DocumentPanGesture | null>(null);
 
@@ -1168,7 +1190,7 @@ export function SigningLiveShell({
                               checkboxValue={Boolean(checkboxValues[field.id])}
                               field={field}
                               key={field.id}
-                              localDateLabel={localDateLabel}
+                              localDateLabels={localDateLabels}
                               isInvalid={isInvalidEntry(field)}
                               tooLongMessage={
                                 tooLongAnswers[field.id] !== undefined
@@ -1322,7 +1344,7 @@ export function SigningLiveShell({
                       record.currentSignerFields,
                       {
                         ...enteredValues,
-                        localDateLabel,
+                        localDateLabels,
                         signerName: record.signer.name,
                       },
                     )}
@@ -1676,7 +1698,7 @@ function CurrentSignerField({
   checkboxValue,
   field,
   isInvalid,
-  localDateLabel,
+  localDateLabels,
   onCheckboxChange,
   onSignatureClick,
   onTextChange,
@@ -1689,7 +1711,7 @@ function CurrentSignerField({
   field: SigningCurrentField;
   /** True for a number field holding something that is not a number. */
   isInvalid: boolean;
-  localDateLabel: string;
+  localDateLabels: Record<DateFormat, string>;
   onCheckboxChange: (checked: boolean) => void;
   onSignatureClick: () => void;
   onTextChange: (value: string) => void;
@@ -1702,13 +1724,12 @@ function CurrentSignerField({
 }) {
   const frame = getFieldFrame(field);
   const showInlineLabel = shouldShowInlineFieldLabel(field);
-  const showInlineValue = shouldShowInlineFieldValue(field);
 
   if (field.type === "signature" || field.type === "initials") {
     return (
       <button
         aria-label={getSummaryLabel(field)}
-        className={`absolute z-2 overflow-hidden rounded-[0.375rem] border-2 border-(--accent) text-(--accent-ink) transition ${
+        className={`field-box absolute z-2 overflow-hidden rounded-[0.375rem] border-2 border-(--accent) text-(--accent-ink) transition ${
           signatureEntry?.value
             ? "bg-[rgb(var(--accent-rgb)/0.10)]"
             : "bg-[rgb(var(--accent-rgb)/0.07)] hover:bg-[rgb(var(--accent-rgb)/0.16)]"
@@ -1730,27 +1751,25 @@ function CurrentSignerField({
                 unoptimized
               />
             </span>
-          ) : signatureEntry?.value && showInlineValue ? (
-            <span
-              className="block max-w-full truncate px-1 text-sm"
+          ) : signatureEntry?.value ? (
+            <FittedFieldText
+              className="block max-w-full truncate px-1"
+              maxPixels={signatureEntry.inputMethod === "typed" ? 17 : 14}
               style={{
                 fontFamily:
                   signatureEntry.inputMethod === "typed"
                     ? typedSignatureFont
                     : undefined,
-                fontSize:
-                  signatureEntry.inputMethod === "typed"
-                    ? "1.05rem"
-                    : undefined,
               }}
-            >
-              {signatureEntry.value}
-            </span>
-          ) : showInlineLabel ? (
-            <span className="block max-w-full truncate px-1 text-xs font-bold">
-              {getCanvasFieldLabel(field)}
-            </span>
-          ) : null}
+              text={signatureEntry.value}
+            />
+          ) : (
+            <FittedFieldText
+              className="block max-w-full truncate px-1 font-bold"
+              maxPixels={12}
+              text={getCanvasFieldLabel(field)}
+            />
+          )}
         </span>
       </button>
     );
@@ -1758,17 +1777,24 @@ function CurrentSignerField({
 
   // Filled in for the signer: the day they sign, or their name.
   if (field.type === "date" || field.type === "name") {
+    const value =
+      field.type === "date"
+        ? localDateLabels[field.dateFormat ?? "date"]
+        : signerName;
+
+    // One line, made smaller if need be, as the signed PDF stamps it.
     return (
       <div
-        className="absolute z-2 overflow-hidden rounded-[0.375rem] border border-(--border-strong) bg-white/92 text-sm text-(--fg)"
+        className="field-box absolute z-2 overflow-hidden rounded-[0.375rem] border border-(--border-strong) bg-white/92 text-(--fg)"
         data-signing-field="true"
         style={frame}
       >
-        {showInlineValue ? (
-          <p className="flex h-full items-center truncate px-2 text-[12px] font-semibold">
-            {field.type === "date" ? localDateLabel : signerName}
-          </p>
-        ) : null}
+        <FittedFieldText
+          as="p"
+          className="flex h-full items-center justify-center px-1.5 font-semibold whitespace-nowrap"
+          maxPixels={12}
+          text={value}
+        />
       </div>
     );
   }
@@ -1921,8 +1947,6 @@ function CurrentSignerField({
 
 function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
   const frame = getFieldFrame(field);
-  const showInlineLabel = shouldShowInlineFieldLabel(field);
-  const showInlineValue = shouldShowInlineFieldValue(field);
 
   if (field.type === "radio") {
     return (
@@ -1989,38 +2013,32 @@ function VisibleFieldStamp({ field }: { field: SigningVisibleField }) {
     );
   }
 
+  const visibleValue = getVisibleFieldValue(field);
+  const isTypedSignature =
+    field.inputMethod === "typed" &&
+    (field.type === "signature" || field.type === "initials");
+
   return (
     <div
-      className="pointer-events-none absolute z-1 overflow-hidden rounded-[0.375rem] border border-(--border-strong) bg-[rgba(28,29,43,0.03)] text-(--secondary)"
+      className="field-box pointer-events-none absolute z-1 overflow-hidden rounded-[0.375rem] border border-(--border-strong) bg-[rgba(28,29,43,0.03)] text-(--secondary)"
       data-signing-field="true"
       style={frame}
     >
       <div className="flex h-full w-full items-center overflow-hidden px-1">
-        {showInlineValue ? (
-          <p
-            className={`truncate ${
-              showInlineLabel ? "text-[12px]" : "w-full text-center text-[11px]"
-            } font-medium`}
-            style={{
-              fontFamily:
-                field.inputMethod === "typed" &&
-                (field.type === "signature" || field.type === "initials")
-                  ? typedSignatureFont
-                  : undefined,
-              fontSize:
-                field.inputMethod === "typed" &&
-                (field.type === "signature" || field.type === "initials")
-                  ? "1rem"
-                  : undefined,
-            }}
-          >
-            {getVisibleFieldValue(field)}
-          </p>
-        ) : showInlineLabel ? (
-          <p className="w-full truncate text-center text-[11px] font-semibold text-(--tertiary)">
-            {getCanvasFieldLabel(field)}
-          </p>
-        ) : null}
+        {/* Centred like the signed PDF stamps them. */}
+        <FittedFieldText
+          as="p"
+          className={`truncate font-medium ${
+            field.type === "date" || field.type === "name" || isTypedSignature
+              ? "w-full text-center"
+              : ""
+          }`}
+          maxPixels={isTypedSignature ? 16 : 12}
+          style={{
+            fontFamily: isTypedSignature ? typedSignatureFont : undefined,
+          }}
+          text={visibleValue}
+        />
       </div>
     </div>
   );

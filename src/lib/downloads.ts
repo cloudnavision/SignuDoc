@@ -31,6 +31,7 @@ import {
 } from "./services/storage.ts";
 import { getRecipientCertificateKey } from "./services/storage-keys.ts";
 import { type DownloadFileType } from "./types/domain.ts";
+import { type DateFormat } from "./signing-date.ts";
 
 type EnvelopeRow = {
   completedAt: number | null;
@@ -87,6 +88,7 @@ type SignerRow = {
 type FieldRow = {
   checked: boolean | null;
   createdAt: number;
+  dateFormat: DateFormat | null;
   envelopeId: string;
   groupId: string | null;
   height: number;
@@ -171,6 +173,7 @@ function mapFieldRow(row: FieldRow): FieldRecord {
     checked: row.checked,
     createdAt: row.createdAt,
     envelopeId: row.envelopeId,
+    dateFormat: row.dateFormat ?? undefined,
     groupId: row.groupId ?? undefined,
     height: row.height,
     id: row.id,
@@ -478,6 +481,7 @@ async function listFieldsForEnvelope(
         checked,
         options,
         group_id AS "groupId",
+        date_format AS "dateFormat",
         submitted_at AS "submittedAt",
         created_at AS "createdAt",
         updated_at AS "updatedAt"

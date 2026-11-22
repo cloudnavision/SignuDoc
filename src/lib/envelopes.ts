@@ -144,6 +144,7 @@ import {
 import { escapeHtml } from "./utils/html.ts";
 import { hasEmbedOrigins, isEmbeddedEnvelope } from "./embedding.ts";
 import { releaseSentWebhook } from "./webhooks/outbox.ts";
+import { type DateFormat } from "./signing-date.ts";
 
 type CreateDraftEnvelopeOptions = {
   database?: DbPool;
@@ -276,6 +277,7 @@ type SignerRow = {
 type FieldRow = {
   checked: boolean | null;
   createdAt: number;
+  dateFormat: DateFormat | null;
   envelopeId: string;
   groupId: string | null;
   height: number;
@@ -1056,9 +1058,10 @@ export async function copyEnvelopeToDraft(
               created_at,
               updated_at,
               options,
-              group_id
+              group_id,
+              date_format
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, NULL, NULL, NULL, NULL, $12, $13, $14::jsonb, $15
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, NULL, NULL, NULL, NULL, $12, $13, $14::jsonb, $15, $16
             )
           `,
           [
@@ -1079,6 +1082,7 @@ export async function copyEnvelopeToDraft(
               ? JSON.stringify(field.options)
               : null,
             field.groupId ?? null,
+            field.type === "date" ? (field.dateFormat ?? null) : null,
           ],
         );
       }
@@ -1133,6 +1137,7 @@ function mapFieldRow(row: FieldRow): PersistedFieldRecord {
     checked: row.checked,
     createdAt: row.createdAt,
     envelopeId: row.envelopeId,
+    dateFormat: row.dateFormat ?? undefined,
     groupId: row.groupId ?? undefined,
     height: row.height,
     id: row.id,
@@ -1447,6 +1452,7 @@ async function listFieldsForEnvelopeIds(
         checked,
         options,
         group_id AS "groupId",
+        date_format AS "dateFormat",
         submitted_at AS "submittedAt",
         created_at AS "createdAt",
         updated_at AS "updatedAt"
@@ -4276,9 +4282,10 @@ export async function replaceDraftEnvelopeFields(
             created_at,
             updated_at,
             options,
-            group_id
+            group_id,
+            date_format
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, NULL, NULL, NULL, NULL, $12, $13, $14::jsonb, $15
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, NULL, NULL, NULL, NULL, $12, $13, $14::jsonb, $15, $16
           )
         `,
         [
@@ -4299,6 +4306,7 @@ export async function replaceDraftEnvelopeFields(
             ? JSON.stringify(field.options ?? [])
             : null,
           field.groupId ?? null,
+          field.type === "date" ? (field.dateFormat ?? null) : null,
         ],
       );
     }

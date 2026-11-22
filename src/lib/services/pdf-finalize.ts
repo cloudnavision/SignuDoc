@@ -321,13 +321,15 @@ type FieldTextLayout = {
 
 /**
  * Wraps a field value. Unlike wrapText, the spaces inside a line are kept as
- * the signer typed them; only those where a line breaks are dropped.
+ * the signer typed them; only those where a line breaks are dropped. A word
+ * wider than the box is split unless splitLongWords is false.
  */
 export function wrapFieldText(
   font: TextFace,
   size: number,
   maxWidth: number,
   text: string,
+  splitLongWords = true,
 ): string[] {
   const parts = text.trim().split(/(\s+)/);
   const lines: string[] = [];
@@ -341,7 +343,11 @@ export function wrapFieldText(
       continue;
     }
 
-    for (const chunk of chunkLongWord(font, size, maxWidth, word)) {
+    const pieces = splitLongWords
+      ? chunkLongWord(font, size, maxWidth, word)
+      : [word];
+
+    for (const chunk of pieces) {
       const candidate = currentLine
         ? `${currentLine}${pendingSpace}${chunk}`
         : chunk;
@@ -372,14 +378,15 @@ function layoutAtSize(
   maxWidth: number,
   maxHeight: number,
   size: number,
+  splitLongWords: boolean,
 ): FieldTextLayout {
-  const lines = wrapFieldText(font, size, maxWidth, text);
+  const lines = wrapFieldText(font, size, maxWidth, text, splitLongWords);
   const blockHeight =
     lines.length === 0
       ? 0
       : (lines.length - 1) * size * FIELD_TEXT_LINE_HEIGHT + size;
 
-  // A line can be wider than the box only when one character is.
+  // A line is too wide only when a whole word, or one character, is.
   const fits =
     blockHeight <= maxHeight &&
     lines.every((line) => font.widthOfTextAtSize(line, size) <= maxWidth);
@@ -387,28 +394,25 @@ function layoutAtSize(
   return { blockHeight, fits, lines, size };
 }
 
-/**
- * Lays a value out in its box: one line at the preferred size when it fits,
- * otherwise wrapped onto as many lines as it needs, at the largest size, no
- * smaller than minSize, at which every line fits. When even minSize is too
- * big, the layout at minSize is returned with fits false.
- */
-function layoutFieldText(
+/** The largest size from minSize up to largest at which the value fits. */
+function largestFittingLayout(
   font: TextFace,
   text: string,
   maxWidth: number,
   maxHeight: number,
-  preferredSize: number,
+  largest: number,
   minSize: number,
+  splitLongWords: boolean,
 ): FieldTextLayout {
-  const largest = Math.max(minSize, Math.min(preferredSize, maxHeight));
-  const atLargest = layoutAtSize(font, text, maxWidth, maxHeight, largest);
+  const layoutAt = (size: number) =>
+    layoutAtSize(font, text, maxWidth, maxHeight, size, splitLongWords);
+  const atLargest = layoutAt(largest);
 
   if (atLargest.fits) {
     return atLargest;
   }
 
-  const atSmallest = layoutAtSize(font, text, maxWidth, maxHeight, minSize);
+  const atSmallest = layoutAt(minSize);
 
   if (!atSmallest.fits) {
     return atSmallest;
@@ -421,7 +425,7 @@ function layoutFieldText(
 
   while (high - low > 0.1) {
     const middle = (low + high) / 2;
-    const layout = layoutAtSize(font, text, maxWidth, maxHeight, middle);
+    const layout = layoutAt(middle);
 
     if (layout.fits) {
       best = layout;
@@ -432,6 +436,45 @@ function layoutFieldText(
   }
 
   return best;
+}
+
+/**
+ * Lays a value out in its box: one line at the preferred size when it fits,
+ * otherwise wrapped onto as many lines as it needs, at the largest size, no
+ * smaller than minSize, at which every line fits, keeping words whole if any
+ * such size allows it. When even minSize is too big, the layout at minSize is
+ * returned with fits false.
+ */
+function layoutFieldText(
+  font: TextFace,
+  text: string,
+  maxWidth: number,
+  maxHeight: number,
+  preferredSize: number,
+  minSize: number,
+): FieldTextLayout {
+  const largest = Math.max(minSize, Math.min(preferredSize, maxHeight));
+  const wholeWords = largestFittingLayout(
+    font,
+    text,
+    maxWidth,
+    maxHeight,
+    largest,
+    minSize,
+    false,
+  );
+
+  return wholeWords.fits
+    ? wholeWords
+    : largestFittingLayout(
+        font,
+        text,
+        maxWidth,
+        maxHeight,
+        largest,
+        minSize,
+        true,
+      );
 }
 
 /** The room a text value has inside its field, as the stamp lays it out. */
@@ -763,10 +806,16 @@ async function drawFieldValue(
         Math.min(maxHeight, rect.heightPt * 0.9),
       );
 
+      const textWidth = fonts.signature.widthOfTextAtSize(
+        signatureValue,
+        fontSize,
+      );
+
+      // Centred, like a drawn signature and like the signing page shows it.
       fonts.signature.drawText(page, signatureValue, {
         color: rgb(0.12, 0.12, 0.12),
         size: fontSize,
-        x: rect.xPt + padding,
+        x: rect.xPt + Math.max(padding, (rect.widthPt - textWidth) / 2),
         y: rect.yPt + (rect.heightPt - fontSize) / 2 + fontSize * 0.1,
       });
 
@@ -788,14 +837,28 @@ async function drawFieldValue(
       // size, but a dropdown choice, or a value accepted earlier, is still
       // drawn whole, never cut off.
       const box = getTextFieldBox(rect);
-      let layout = layoutFieldText(
-        fonts.auditRegular,
-        textValue,
-        box.maxWidth,
-        box.maxHeight,
+      // A date or a name reads best on one line, made smaller if need be.
+      const oneLineSize = Math.min(
         box.preferredSize,
-        MIN_FIELD_TEXT_SIZE,
+        box.maxWidth / fonts.auditRegular.widthOfTextAtSize(textValue, 1),
       );
+      let layout =
+        (field.type === "date" || field.type === "name") &&
+        oneLineSize >= MIN_FIELD_TEXT_SIZE
+          ? {
+              blockHeight: oneLineSize,
+              fits: true,
+              lines: [textValue],
+              size: oneLineSize,
+            }
+          : layoutFieldText(
+              fonts.auditRegular,
+              textValue,
+              box.maxWidth,
+              box.maxHeight,
+              box.preferredSize,
+              MIN_FIELD_TEXT_SIZE,
+            );
 
       for (
         let floor = LAST_RESORT_FIELD_TEXT_SIZE;
@@ -814,12 +877,18 @@ async function drawFieldValue(
 
       const { size } = layout;
       const top = rect.yPt + (rect.heightPt + layout.blockHeight) / 2;
+      // A date or a name is centred in its box, as the signing page shows it.
+      const centred = field.type === "date" || field.type === "name";
 
       layout.lines.forEach((line, index) => {
+        const lineWidth = fonts.auditRegular.widthOfTextAtSize(line, size);
+
         fonts.auditRegular.drawText(page, line, {
           color: rgb(0.12, 0.12, 0.12),
           size,
-          x: rect.xPt + box.padding,
+          x: centred
+            ? rect.xPt + Math.max(box.padding, (rect.widthPt - lineWidth) / 2)
+            : rect.xPt + box.padding,
           y: top - size * 0.8 - index * size * FIELD_TEXT_LINE_HEIGHT,
         });
       });

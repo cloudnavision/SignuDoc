@@ -395,6 +395,7 @@ export async function saveEnvelopeAsTemplate(
       return roleId
         ? [
             {
+              dateFormat: field.dateFormat,
               groupId: field.groupId,
               height: field.height,
               label: field.label,

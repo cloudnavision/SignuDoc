@@ -19,6 +19,7 @@ import {
   reminderIntervalDaysSchema,
 } from "../schemas/envelope.ts";
 import { fieldTypeSchema } from "../schemas/field.ts";
+import { dateFormats } from "../signing-date.ts";
 import {
   MAX_COPY_RECIPIENTS_PER_ENVELOPE,
   MAX_SIGNERS_CEILING,
@@ -92,6 +93,7 @@ const apiSignerSchema = z.object({
 });
 
 const apiFieldSchema = z.object({
+  dateFormat: z.enum(dateFormats).optional(),
   groupId: z.string().trim().min(1).max(64).optional(),
   height: z.number().finite().gt(0).max(1),
   label: z.string().trim().max(120).optional(),
@@ -268,6 +270,7 @@ export async function createEnvelopeForApi(
       envelopeId,
       {
         fields: input.fields.map((field) => ({
+          dateFormat: field.dateFormat,
           groupId: field.groupId,
           height: field.height,
           label: field.label,

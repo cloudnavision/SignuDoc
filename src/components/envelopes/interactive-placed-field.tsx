@@ -6,11 +6,10 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { FittedFieldText } from "@/components/ui/fitted-field-text";
 import { type FieldResizeHandle } from "@/lib/utils/pdf-coords";
 
 const dragThresholdPx = 4;
-const compactFieldHeightThreshold = 0.045;
-const compactFieldWidthThreshold = 0.12;
 
 const resizeHandles: ReadonlyArray<{
   corner: FieldResizeHandle;
@@ -89,10 +88,7 @@ export function InteractivePlacedField({
   const percentMultiplier = 100 / coordinateScale;
   const isRadio = field.type === "radio";
   const isCheckbox = field.type === "checkbox" || isRadio;
-  const showInlineLabel =
-    !isCheckbox &&
-    field.width >= compactFieldWidthThreshold &&
-    field.height >= compactFieldHeightThreshold;
+  const showInlineLabel = !isCheckbox;
 
   function beginGesture(
     event: ReactPointerEvent<HTMLElement>,
@@ -211,11 +207,11 @@ export function InteractivePlacedField({
     <div
       aria-label={`${signer.name} · ${label}`}
       aria-pressed={isSelected}
-      className={`absolute z-2 flex touch-none select-none items-center justify-center overflow-visible border-2 text-center text-[11px] font-semibold shadow-(--shadow-card) transition ${
+      className={`field-box absolute z-2 flex touch-none select-none items-center justify-center overflow-visible border-2 text-center text-[11px] font-semibold shadow-(--shadow-card) transition ${
         isSelected
           ? "ring-4 ring-[rgba(28,29,43,0.10)]"
           : "hover:ring-2 hover:ring-[rgba(28,29,43,0.08)]"
-      } cursor-grab ${isRadio ? "rounded-full p-0" : isCheckbox ? "rounded-[0.25rem] p-0" : "rounded-[0.375rem] px-2 py-1"}`}
+      } cursor-grab ${isRadio ? "rounded-full p-0" : isCheckbox ? "rounded-[0.25rem] p-0" : "rounded-[0.375rem] px-1"}`}
       onKeyDown={handleKeyboardSelect}
       onPointerCancel={endGesture}
       onPointerDown={(event) => beginGesture(event, "move")}
@@ -235,9 +231,11 @@ export function InteractivePlacedField({
       tabIndex={0}
     >
       {showInlineLabel ? (
-        <span className="pointer-events-none max-w-full overflow-hidden text-ellipsis whitespace-nowrap px-1">
-          {label}
-        </span>
+        <FittedFieldText
+          className="pointer-events-none max-w-full overflow-hidden text-ellipsis whitespace-nowrap px-1"
+          maxPixels={11}
+          text={label}
+        />
       ) : null}
 
       {isSelected

@@ -15,3 +15,14 @@ export async function startSendLimitAfresh(
     createHash("sha256").update(`envelope-send:${userId}`).digest("hex"),
   ]);
 }
+
+// One account may also start twenty drafts in ten minutes (the limit in
+// src/app/api/envelopes/route.ts), and together the tests start more.
+export async function startDraftLimitAfresh(
+  database: pg.Client,
+  userId: string,
+): Promise<void> {
+  await database.query("delete from public.rate_limits where key = $1", [
+    createHash("sha256").update(`draft-create:${userId}`).digest("hex"),
+  ]);
+}

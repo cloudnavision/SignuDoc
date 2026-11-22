@@ -134,6 +134,7 @@ async function createPreparedDraft(userId: string) {
         field(riley!, "dropdown", 0.25, { options: ["Monthly", "Yearly"] }),
         field(casey!, "radio", 0.3, { groupId, label: "Furnished" }),
         field(casey!, "radio", 0.35, { groupId, label: "Unfurnished" }),
+        field(riley!, "date", 0.4, { dateFormat: "date_time" }),
       ],
     },
     database,
@@ -194,7 +195,7 @@ test("a template keeps the document, the fields and the order, and no one's name
       createdAtLabel: (await listTemplatesForUser(userId, database))[0]!
         .createdAtLabel,
       // The two radio buttons are one question.
-      fieldCountLabel: "5 fields",
+      fieldCountLabel: "6 fields",
       id: template.id,
       name: "Residential lease",
       pageCountLabel: "2 pages",
@@ -292,6 +293,7 @@ test("a draft made from a template has the fields on the people named for it", a
   const [tess, lou] = draft.signers.map((signer) => signer.id);
   const summary = draft.fields
     .map((placed) => ({
+      dateFormat: placed.dateFormat,
       label: placed.label,
       options: placed.options,
       page: placed.page,
@@ -307,6 +309,16 @@ test("a draft made from a template has the fields on the people named for it", a
 
   assert.deepEqual(summary, [
     {
+      dateFormat: "date_time",
+      label: undefined,
+      options: undefined,
+      page: 1,
+      required: true,
+      signer: "tess",
+      type: "date",
+    },
+    {
+      dateFormat: undefined,
       label: undefined,
       options: ["Monthly", "Yearly"],
       page: 1,
@@ -315,6 +327,7 @@ test("a draft made from a template has the fields on the people named for it", a
       type: "dropdown",
     },
     {
+      dateFormat: undefined,
       label: "Furnished",
       options: undefined,
       page: 1,
@@ -323,6 +336,7 @@ test("a draft made from a template has the fields on the people named for it", a
       type: "radio",
     },
     {
+      dateFormat: undefined,
       label: "Unfurnished",
       options: undefined,
       page: 1,
@@ -331,6 +345,7 @@ test("a draft made from a template has the fields on the people named for it", a
       type: "radio",
     },
     {
+      dateFormat: undefined,
       label: undefined,
       options: undefined,
       page: 1,
@@ -339,6 +354,7 @@ test("a draft made from a template has the fields on the people named for it", a
       type: "signature",
     },
     {
+      dateFormat: undefined,
       label: undefined,
       options: undefined,
       page: 2,
@@ -347,6 +363,7 @@ test("a draft made from a template has the fields on the people named for it", a
       type: "signature",
     },
     {
+      dateFormat: undefined,
       label: "Unit number",
       options: undefined,
       page: 1,

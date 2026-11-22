@@ -870,6 +870,112 @@ test("spaces inside an answer are kept as they were typed", async () => {
   );
 });
 
+async function renderOneField(
+  field: Pick<FieldRecord, "height" | "type" | "value" | "width" | "x" | "y">,
+  inputMethod?: FieldRecord["inputMethod"],
+  page = LETTER_PAGE,
+) {
+  const fixture = await makeFixture();
+  const source = await PDFDocument.create();
+
+  source.addPage([page.widthPt, page.heightPt]);
+
+  const sourcePdf = await source.save();
+  const storageService = {
+    getObject: async () => ({
+      body: sourcePdf,
+      contentLength: sourcePdf.byteLength,
+      contentType: "application/pdf",
+    }),
+  } as unknown as StorageService;
+
+  return renderFinalizedEnvelopePdf(
+    {
+      auditEvents: fixture.auditEvents,
+      completedAt: fixture.envelope.completedAt!,
+      envelope: { ...fixture.envelope, sourcePdfHash: sha256Hex(sourcePdf) },
+      fields: [
+        {
+          ...field,
+          createdAt: 1_800_000_000,
+          envelopeId: fixture.envelope.id,
+          id: "one-field",
+          inputMethod,
+          page: 1,
+          required: true,
+          signerId: "signer-1",
+          submittedAt: 1_800_000_000,
+          updatedAt: 1_800_000_000,
+        },
+      ],
+      pages: [page],
+      signers: fixture.signers,
+      sourcePdfKey: fixture.envelope.sourcePdfKey,
+    },
+    { seal: saveUnsealed, storageService },
+  );
+}
+
+// Issue #203: the old default Date box on an A4 page stamped "Novembe" and
+// "r 22, 2026" on two lines.
+test("a date in a narrow box stays on one line, with its words whole", async () => {
+  const items = await extractTextItems(
+    await renderOneField(
+      {
+        height: 0.045,
+        type: "date",
+        value: "November 22, 2026",
+        width: 0.12,
+        x: 0.43,
+        y: 0.71,
+      },
+      undefined,
+      { heightPt: 841.89, pageNumber: 1, widthPt: 595.28 },
+    ),
+  );
+  const fieldRight = (0.43 + 0.12) * 595.28;
+
+  assert.deepEqual(
+    items.map((item) => item.text),
+    ["November 22, 2026"],
+  );
+  assert.ok(items[0]!.right <= fieldRight, "the date runs past its box");
+});
+
+test("a date is centred in its box, as the signing page shows it", async () => {
+  const box = { height: 0.045, width: 0.6, x: 0.2, y: 0.5 };
+  const items = await extractTextItems(
+    await renderOneField({
+      ...box,
+      type: "date",
+      value: "November 22, 2026",
+    }),
+  );
+  const [date] = items;
+  const boxCentre = (box.x + box.width / 2) * 612;
+
+  assert.equal(items.length, 1);
+  assert.ok(
+    Math.abs((date!.left + date!.right) / 2 - boxCentre) < 1,
+    `centre ${String((date!.left + date!.right) / 2)}, box ${String(boxCentre)}`,
+  );
+});
+
+test("a typed signature is centred in its box, as a drawn one is", async () => {
+  const box = { height: 0.07, width: 0.24, x: 0.37, y: 0.64 };
+  const items = await extractTextItems(
+    await renderOneField({ ...box, type: "signature", value: "abc" }, "typed"),
+  );
+  const [signature] = items;
+  const boxCentre = (box.x + box.width / 2) * 612;
+
+  assert.ok(signature, "the signature is stamped");
+  assert.ok(
+    Math.abs((signature.left + signature.right) / 2 - boxCentre) < 1,
+    `centre ${String((signature.left + signature.right) / 2)}, box ${String(boxCentre)}`,
+  );
+});
+
 // Audit rows print "time | event | actor". Returns the events in the order
 // the certificate lists them.
 function certificateEventOrder(text: string): string[] {

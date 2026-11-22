@@ -4,6 +4,7 @@
 // allowed values come from the app's own, so they cannot drift either.
 
 import { getMaxSignersPerEnvelope } from "../signer-limit.ts";
+import { dateFormats } from "../signing-date.ts";
 import {
   fieldTypes,
   MAX_SIGNERS_CEILING,
@@ -250,6 +251,13 @@ export function buildOpenApiDocument(
           description:
             "Position and size are fractions of the page (0 to 1), measured from its top left corner.",
           properties: {
+            dateFormat: {
+              default: "date",
+              description:
+                "Date fields only. What is stamped when the signer signs, in their time zone: date (November 19, 2026), date_time (November 19, 2026, 2:30 PM (UTC+05:30)) or time (2:30 PM (UTC+05:30)).",
+              enum: [...dateFormats],
+              type: "string",
+            },
             groupId: {
               description: "Radio buttons in one group.",
               maxLength: 64,

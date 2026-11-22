@@ -154,6 +154,9 @@ async function createPreparedDraft(userId: string) {
         field(riley!, "dropdown", 0.25, { options: ["Monthly", "Yearly"] }),
         field(casey!, "radio", 0.3, { groupId, label: "Furnished" }),
         field(casey!, "radio", 0.35, { groupId, label: "Unfurnished" }),
+        field(riley!, "date", 0.4),
+        field(riley!, "date", 0.45, { dateFormat: "date_time" }),
+        field(casey!, "date", 0.5, { dateFormat: "time" }),
       ],
     },
     database,
@@ -418,6 +421,7 @@ function assertMutationError(statusCode: number) {
 
 function fieldShape(
   placed: {
+    dateFormat?: string;
     groupId?: string;
     height: number;
     label?: string;
@@ -434,6 +438,7 @@ function fieldShape(
 ) {
   return {
     assignment: signerOrderById.get(placed.signerId),
+    dateFormat: placed.dateFormat ?? null,
     groupId: placed.groupId ?? null,
     height: placed.height,
     label: placed.label ?? null,
@@ -603,6 +608,13 @@ test("a completed envelope is copied into a new draft with people, fields and a 
     prepared.fields.map((placed) => fieldShape(placed, copiedOrder)),
     originalPrepared!.fields.map((placed) => fieldShape(placed, originalOrder)),
   );
+  assert.deepEqual(
+    prepared.fields
+      .filter((placed) => placed.type === "date")
+      .map((placed) => placed.dateFormat ?? "date")
+      .sort(),
+    ["date", "date_time", "time"],
+  );
   assert.ok(
     prepared.fields.every(
       (placed) =>
@@ -723,7 +735,7 @@ test("a declined or voided envelope can be copied, and so can one still out or p
     assert.equal(draft.status, "draft", status);
     assert.equal(draft.title, "Lease for 12 Harbour Road", status);
     assert.equal(prepared?.signers.length, 2, status);
-    assert.equal(prepared?.fields.length, 6, status);
+    assert.equal(prepared?.fields.length, 9, status);
     assert.ok(
       prepared?.fields.every((placed) => (placed.value ?? null) === null),
       status,
