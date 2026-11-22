@@ -133,6 +133,12 @@ export function buildOpenApiDocument(
             signers: {
               items: {
                 properties: {
+                  language: {
+                    type: "string",
+                    enum: ["en", "es"],
+                    description:
+                      "Optional signer language. Inherits the install default when omitted; fixed when sent.",
+                  },
                   accessCode: { maxLength: 64, minLength: 4, type: "string" },
                   email: { format: "email", type: "string" },
                   name: personNameSchema,
@@ -277,6 +283,12 @@ export function buildOpenApiDocument(
         },
         SendOptions: {
           properties: {
+            language: {
+              type: "string",
+              enum: ["en", "es"],
+              description:
+                "Certificate frame language; defaults to the install language at sending.",
+            },
             delivery: {
               default: "email",
               description:
@@ -308,6 +320,12 @@ export function buildOpenApiDocument(
         },
         Signer: {
           properties: {
+            language: {
+              type: ["string", "null"],
+              enum: ["en", "es", null],
+              description:
+                "Fixed language after sending; null in a draft inherits the install default.",
+            },
             declineReason: { type: ["string", "null"] },
             declinedAt: isoTime,
             email: { type: "string" },

@@ -7,6 +7,7 @@ import {
   queryOne,
   withTransaction,
 } from "./db/connection.ts";
+import { type SignerLocale } from "./i18n.ts";
 import {
   evaluateSignup,
   type SignupDecision,
@@ -33,6 +34,8 @@ export type AppSettings = {
    * electronic-records-disclosure.ts.
    */
   consentDisclosure: string | null;
+  /** Administrator-authored translations; English remains in consentDisclosure. */
+  consentDisclosureTranslations?: Partial<Record<SignerLocale, string | null>>;
   emailReadyAt: number | null;
   /**
    * A short hash of the install's logo, or null when it has none. The logo
@@ -47,6 +50,12 @@ export type AppSettings = {
    */
   part11Mode: boolean;
   privacyUrl: string | null;
+  /**
+   * The language signers see: the signing pages, the notices a signer is
+   * shown and the emails a signer receives. The dashboard is not affected.
+   * See i18n.ts.
+   */
+  signerLanguage: SignerLocale;
   /**
    * Everyone must set up two-step sign-in (an authenticator app) before
    * they can use the app. See sign-in-security.ts.
@@ -105,11 +114,13 @@ type AppSettingsRow = {
   allowed_email_domains: string[] | null;
   brand_color: string | null;
   consent_disclosure: string | null;
+  consent_disclosure_translations: Partial<Record<SignerLocale, string | null>>;
   email_ready_at: number | null;
   logo_hash: string | null;
   organization_name: string | null;
   part11_mode: boolean;
   privacy_url: string | null;
+  signer_language: SignerLocale;
   require_two_factor: boolean;
   retention_days: number | null;
   sender_address: string | null;
@@ -146,6 +157,8 @@ const LATER_SETTINGS_COLUMNS = [
   ["require_two_factor"], // 20261117090000_sign_in_security
   ["session_idle_minutes", "session_max_hours"], // 20261117100000_session_controls
   ["consent_disclosure"], // 20261119130000_consent_disclosure
+  ["signer_language"], // 20261119090000_signer_language
+  ["consent_disclosure_translations"], // 20261122090000_disclosure_languages
 ] as const;
 
 type LaterSettingsColumn = (typeof LATER_SETTINGS_COLUMNS)[number][number];
@@ -171,6 +184,7 @@ const UNSET_SETTINGS: AppSettings = {
   allowedEmailDomains: [],
   brandColor: null,
   consentDisclosure: null,
+  consentDisclosureTranslations: {},
   emailReadyAt: null,
   logoVersion: null,
   organizationName: null,
@@ -182,6 +196,7 @@ const UNSET_SETTINGS: AppSettings = {
   sessionIdleMinutes: null,
   sessionMaxHours: null,
   setupCompletedAt: null,
+  signerLanguage: "en",
   signupMode: "open",
   supportAddress: null,
   termsUrl: null,
@@ -250,11 +265,13 @@ function mapSettingsRow(row: StoredSettingsRow): AppSettings {
     allowedEmailDomains: row.allowed_email_domains ?? [],
     brandColor: row.brand_color ?? null,
     consentDisclosure: row.consent_disclosure ?? null,
+    consentDisclosureTranslations: row.consent_disclosure_translations ?? {},
     emailReadyAt: row.email_ready_at,
     logoVersion: row.logo_hash ?? null,
     organizationName: row.organization_name,
     part11Mode: row.part11_mode ?? false,
     privacyUrl: row.privacy_url,
+    signerLanguage: row.signer_language ?? "en",
     requireTwoFactor: row.require_two_factor ?? false,
     retentionDays: row.retention_days ?? null,
     senderAddress: row.sender_address,
@@ -339,6 +356,9 @@ export function resolveSettings(
     ...settings,
     // The hosted service shows its own disclosure whatever is stored.
     consentDisclosure: hosted ? null : settings.consentDisclosure,
+    consentDisclosureTranslations: hosted
+      ? {}
+      : (settings.consentDisclosureTranslations ?? {}),
     hosted,
     senderAddress: emailEnv.senderAddress ?? settings.senderAddress,
     senderAddressFromEnv: emailEnv.senderAddress !== undefined,
@@ -402,7 +422,14 @@ async function saveSettingsLocked(
     // safe starting point for sign-up is closed, not open.
     signupMode: "closed" as const,
   };
-  const next: AppSettings = { ...current, ...update };
+  const next: AppSettings = {
+    ...current,
+    ...update,
+    consentDisclosureTranslations: {
+      ...current.consentDisclosureTranslations,
+      ...update.consentDisclosureTranslations,
+    },
+  };
 
   if (
     update.senderAddress !== undefined &&
@@ -434,10 +461,12 @@ async function saveSettingsLocked(
         session_idle_minutes,
         session_max_hours,
         consent_disclosure,
+        signer_language,
+        consent_disclosure_translations,
         created_at,
         updated_at
       )
-      values (true, $1, $2, $3, $4, $5, $6, $7, $8, $9, $11, $12, $13, $14, $15, $16, $17, $10, $10)
+      values (true, $1, $2, $3, $4, $5, $6, $7, $8, $9, $11, $12, $13, $14, $15, $16, $17, $18, $19, $10, $10)
       on conflict (id) do update set
         allowed_email_domains = excluded.allowed_email_domains,
         email_ready_at = excluded.email_ready_at,
@@ -455,6 +484,8 @@ async function saveSettingsLocked(
         session_idle_minutes = excluded.session_idle_minutes,
         session_max_hours = excluded.session_max_hours,
         consent_disclosure = excluded.consent_disclosure,
+        signer_language = excluded.signer_language,
+        consent_disclosure_translations = excluded.consent_disclosure_translations,
         updated_at = excluded.updated_at
       returning ${SETTINGS_COLUMNS}
     `,
@@ -476,6 +507,8 @@ async function saveSettingsLocked(
       next.sessionIdleMinutes,
       next.sessionMaxHours,
       next.consentDisclosure,
+      next.signerLanguage,
+      JSON.stringify(next.consentDisclosureTranslations ?? {}),
     ],
   );
 

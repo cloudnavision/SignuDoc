@@ -1,9 +1,11 @@
+import { buildBranding } from "./branding.ts";
 import { type DbExecutor, getDb } from "./db/connection.ts";
 import {
   renewRecipientDownloadLinks,
   type RenewedDownloadLinks,
 } from "./downloads.ts";
-import { getBranding } from "./settings.ts";
+import { t } from "./i18n.ts";
+import { getSettings } from "./settings.ts";
 import { recordEmailSent } from "./services/audit.ts";
 import { createEmailService, type EmailService } from "./services/email.ts";
 import { withUserEmailLegalFooter } from "./services/email-legal-footer.ts";
@@ -20,33 +22,49 @@ export async function sendFreshDownloadLinks(
     emailService = createEmailService(),
   }: { database?: DbExecutor; emailService?: EmailService } = {},
 ): Promise<RenewedDownloadLinks> {
-  const branding = await getBranding();
+  const settings = await getSettings();
+  const branding = buildBranding(settings);
 
   return renewRecipientDownloadLinks(token, {
     database,
     async sendLinks({ envelope, evidenceUrl, signedUrl, signer }) {
-      const subject = `New download links for "${envelope.title}"`;
+      const locale = signer.language ?? "en";
+      const greeting = t(locale, "email.greeting", { name: signer.name });
+      const subject = t(locale, "email.renewal.subject", {
+        title: envelope.title,
+      });
+      const linksLine = t(locale, "email.renewal.line", {
+        title: envelope.title,
+        product: branding.productName,
+        days: TTL_DAYS,
+      });
+      const keepLine = t(locale, "email.renewal.keep");
       const textBody = [
-        `Hi ${signer.name},`,
+        greeting,
         "",
-        `Here are new download links for "${envelope.title}" in ${branding.productName}. They work for ${String(TTL_DAYS)} days.`,
+        linksLine,
         "",
-        ...(signedUrl ? [`Signed PDF: ${signedUrl}`] : []),
-        `Certificate: ${evidenceUrl}`,
+        ...(signedUrl
+          ? [`${t(locale, "email.text.signedPdfLabel")}: ${signedUrl}`]
+          : []),
+        `${t(locale, "email.text.certificateLabel")}: ${evidenceUrl}`,
         "",
-        "Download and keep the files: they are your copy of the record.",
+        keepLine,
       ].join("\n");
       const htmlBody = [
-        `<p>Hi ${escapeHtml(signer.name)},</p>`,
-        `<p>Here are new download links for &ldquo;${escapeHtml(envelope.title)}&rdquo; in ${escapeHtml(branding.productName)}. They work for ${String(TTL_DAYS)} days.</p>`,
+        `<p>${escapeHtml(greeting)}</p>`,
+        `<p>${escapeHtml(linksLine)}</p>`,
         "<p>",
         signedUrl
-          ? `<a href="${escapeHtml(signedUrl)}">Download signed PDF</a><br />`
+          ? `<a href="${escapeHtml(signedUrl)}">${escapeHtml(t(locale, "email.downloadSigned"))}</a><br />`
           : "",
-        `<a href="${escapeHtml(evidenceUrl)}">Download certificate</a></p>`,
-        "<p>Download and keep the files: they are your copy of the record.</p>",
+        `<a href="${escapeHtml(evidenceUrl)}">${escapeHtml(t(locale, "email.downloadCertificate"))}</a></p>`,
+        `<p>${escapeHtml(keepLine)}</p>`,
       ].join("");
-      const body = withUserEmailLegalFooter({ htmlBody, textBody }, branding);
+      const body = withUserEmailLegalFooter(
+        { htmlBody, locale, textBody },
+        branding,
+      );
       const delivery = await emailService.send({
         htmlBody: body.htmlBody,
         subject,

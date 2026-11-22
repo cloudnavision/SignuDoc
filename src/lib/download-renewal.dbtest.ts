@@ -7,6 +7,7 @@ import type pg from "pg";
 import { openTestDatabase } from "./db/test-database.ts";
 import {
   createRecipientDownloadLink,
+  getDownloadLanguageForToken,
   DownloadAccessError,
   renewRecipientDownloadLinks,
 } from "./downloads.ts";
@@ -248,4 +249,28 @@ test("when the email does not go out the old links are put back, and the signer 
     evidence: hashOfLink(sent[1] ?? null),
     signed: hashOfLink(sent[0] ?? null),
   });
+});
+
+test("expired download pages resolve the recipient language without renewing a link", async () => {
+  const finished = await createFinishedEnvelope();
+  await database.query("update signers set language = 'es' where id = $1", [
+    finished.signerId,
+  ]);
+  await database.query(
+    "update recipient_download_tokens set created_at = 0, expires_at = 1 where envelope_id = $1",
+    [finished.envelopeId],
+  );
+  const before = await storedHashes(finished.envelopeId, finished.signerId);
+  assert.equal(
+    await getDownloadLanguageForToken(finished.signed.token, database),
+    "es",
+  );
+  assert.equal(
+    await getDownloadLanguageForToken("unknown-token", database),
+    "en",
+  );
+  assert.deepEqual(
+    await storedHashes(finished.envelopeId, finished.signerId),
+    before,
+  );
 });

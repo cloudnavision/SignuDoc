@@ -10,6 +10,8 @@
 
 import { createHash } from "node:crypto";
 
+import { type SignerLocale, t } from "./i18n.ts";
+
 import { tidyDisclosureText } from "./consent-disclosure-notice.ts";
 
 export const ELECTRONIC_RECORDS_DISCLOSURE_VERSION = "2026-11-13";
@@ -28,9 +30,15 @@ export type DisclosureParty = {
 /** A section with no heading is shown as a plain paragraph. */
 export type DisclosureSection = { heading: string; text: string };
 
-function contactFor(party: DisclosureParty): string {
+function contactFor(
+  party: DisclosureParty,
+  locale: SignerLocale = "en",
+): string {
   return party.contactAddress
-    ? `${party.senderName} at ${party.contactAddress}`
+    ? t(locale, "disclosure.contactAt", {
+        sender: party.senderName,
+        contact: party.contactAddress,
+      })
     : party.senderName;
 }
 
@@ -38,35 +46,30 @@ function contactFor(party: DisclosureParty): string {
 function standardSections(
   sender: string,
   contact: string,
+  locale: SignerLocale = "en",
 ): DisclosureSection[] {
-  return [
-    {
-      heading: "Using electronic records and signatures",
-      text: `${sender} asks you to receive this document and sign it electronically instead of on paper. If you agree, your electronic signature has the same effect as a handwritten one, and the documents you receive this way count as delivered to you in writing.`,
-    },
-    {
-      heading: "You can choose paper instead",
-      text: `You do not have to agree. To sign on paper instead, or to ask for a paper copy of any document after signing, contact ${contact}. A paper copy is free unless ${sender} tells you otherwise before you ask.`,
-    },
-    {
-      heading: "Withdrawing your agreement",
-      text: `You can withdraw this agreement at any time before you sign by declining or by telling ${contact}. Withdrawing does not undo a signature you already gave.`,
-    },
-    {
-      heading: "What you need",
-      text: "A current web browser and a device that can open and save PDF files. You will receive the signed document by email, so keep your email address up to date with the sender. Download and keep the signed copy: it is your record.",
-    },
-    {
-      heading: "This agreement covers",
-      text: "This document and the notices about it that are sent to you through this site.",
-    },
-  ];
+  return ["using", "paper", "withdraw", "needs", "covers"].map((key) => ({
+    heading: t(
+      locale,
+      ("disclosure." +
+        key +
+        ".heading") as import("./i18n.ts").SignerMessageKey,
+    ),
+    text: t(
+      locale,
+      ("disclosure." + key + ".text") as import("./i18n.ts").SignerMessageKey,
+      { sender, contact },
+    ),
+  }));
 }
 
 export function buildElectronicRecordsDisclosure(
   party: DisclosureParty,
+  locale: SignerLocale = "en",
 ): DisclosureSection[] {
-  return standardSections(party.senderName, contactFor(party));
+  // This branch supplies only the English legal starting text.
+  void locale;
+  return standardSections(party.senderName, contactFor(party, "en"), "en");
 }
 
 /**
@@ -156,14 +159,15 @@ export function validateCustomDisclosure(
 export function buildDisclosureSections(
   party: DisclosureParty,
   customText: string | null | undefined,
+  locale: SignerLocale = "en",
 ): DisclosureSection[] {
   const normalized = normalizeCustomDisclosure(customText);
 
   if (normalized === null) {
-    return buildElectronicRecordsDisclosure(party);
+    return buildElectronicRecordsDisclosure(party, locale);
   }
 
-  const contact = contactFor(party);
+  const contact = contactFor(party, locale);
   const sections: DisclosureSection[] = [];
 
   for (const paragraph of splitParagraphs(normalized)) {
@@ -177,7 +181,8 @@ export function buildDisclosureSections(
     }
 
     sections.push({
-      heading: body.length > 0 ? fillPlaceholders(heading ?? "", party) : "",
+      heading:
+        body.length > 0 ? fillPlaceholders(heading ?? "", party, contact) : "",
       text: fillPlaceholders(text, party, contact),
     });
   }
@@ -247,4 +252,8 @@ export function getDisclosureVersion(
     .slice(0, 12);
 
   return `custom-${fingerprint}`;
+}
+
+export function buildConsentStatement(locale: SignerLocale = "en"): string {
+  return t(locale, "disclosure.consent");
 }

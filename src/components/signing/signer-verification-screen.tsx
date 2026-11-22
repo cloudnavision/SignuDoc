@@ -6,30 +6,37 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
 import { FieldShell, ShellButton } from "@/components/shared/form-shell";
+import { type SignerLocale, type SignerMessageKey, t } from "@/lib/i18n";
+import { verificationErrorMessage } from "@/lib/signing-verification-messages";
 import type { SigningVerificationState } from "@/lib/schemas/signing";
 
 type Method = SigningVerificationState["required"][number];
 
-const METHOD_COPY: Record<Method, { helper: string; label: string }> = {
+const METHOD_COPY: Record<
+  Method,
+  { helper: SignerMessageKey; label: SignerMessageKey }
+> = {
   access_code: {
-    helper: "The sender gave you this code separately, for example by phone.",
-    label: "Access code",
+    helper: "verify.accessCodeHelper",
+    label: "verify.accessCodeLabel",
   },
   account: {
-    helper:
-      "This document is signed with your own account here. Enter the password you sign in with.",
-    label: "Password",
+    helper: "verify.accountHelper",
+    label: "verify.accountLabel",
   },
   email_code: {
-    helper: "We email a 6-digit code to the address this document was sent to.",
-    label: "Code from your email",
+    helper: "verify.emailCodeHelper",
+    label: "verify.emailCodeLabel",
   },
 };
 
 export function SignerVerificationScreen({
+  locale = "en",
   state,
   token,
 }: {
+  /** The language the organization chose for its signers. */
+  locale?: SignerLocale;
   state: SigningVerificationState;
   token: string;
 }) {
@@ -39,7 +46,7 @@ export function SignerVerificationScreen({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(
     state.emailCodeSentAt && method === "email_code"
-      ? `A code was sent to ${state.maskedEmail}.`
+      ? t(locale, "verify.codeSent", { email: state.maskedEmail })
       : null,
   );
   const [isChecking, setIsChecking] = useState(false);
@@ -68,16 +75,16 @@ export function SignerVerificationScreen({
       } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? "The code could not be sent right now.");
+        setError(
+          verificationErrorMessage(locale, response.status, "send", method),
+        );
         return;
       }
 
       const maskedEmail = payload?.maskedEmail ?? state.maskedEmail;
 
       if (payload?.sent === false) {
-        setNotice(
-          `A code was already sent to ${maskedEmail} less than a minute ago, so no new email went out. Use that code, or send a new one when the countdown on the button ends.`,
-        );
+        setNotice(t(locale, "verify.cooldown", { email: maskedEmail }));
         const seconds = Math.max(1, Math.ceil(payload.retryAfterSeconds ?? 60));
 
         setResendAt(Date.now() + seconds * 1000);
@@ -86,12 +93,12 @@ export function SignerVerificationScreen({
       }
 
       setNotice(
-        notice
-          ? `A new code was sent to ${maskedEmail}.`
-          : `A code was sent to ${maskedEmail}.`,
+        t(locale, "verify.codeSent", {
+          email: maskedEmail,
+        }),
       );
     } catch {
-      setError("The code could not be sent right now.");
+      setError(t(locale, "verify.sendError"));
     } finally {
       setIsSending(false);
     }
@@ -112,12 +119,11 @@ export function SignerVerificationScreen({
         headers: { "content-type": "application/json" },
         method: "POST",
       });
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
 
       if (!response.ok) {
-        setError(payload?.error ?? "The code could not be checked right now.");
+        setError(
+          verificationErrorMessage(locale, response.status, "check", method),
+        );
         return;
       }
 
@@ -125,7 +131,7 @@ export function SignerVerificationScreen({
       // document.
       window.location.reload();
     } catch {
-      setError("The code could not be checked right now.");
+      setError(t(locale, "verify.checkError"));
     } finally {
       setIsChecking(false);
     }
@@ -148,9 +154,7 @@ export function SignerVerificationScreen({
 
       setResendAt(null);
       setResendWait(0);
-      setNotice(
-        `A code was sent to ${state.maskedEmail}. If it has not arrived, you can send a new one now.`,
-      );
+      setNotice(t(locale, "verify.resendReady", { email: state.maskedEmail }));
     }
 
     const timer = window.setInterval(tick, 1000);
@@ -161,13 +165,13 @@ export function SignerVerificationScreen({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [resendAt, state.maskedEmail]);
+  }, [locale, resendAt, state.maskedEmail]);
 
   const copy = METHOD_COPY[method];
   const step = state.required.indexOf(method) + 1;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div lang={locale} className="flex min-h-screen flex-col">
       <header>
         <div className="page-width flex items-center py-4">
           <Brand href="/" />
@@ -185,21 +189,28 @@ export function SignerVerificationScreen({
             <ShieldCheckIcon className="size-6" strokeWidth={2.2} />
           </span>
           <h1 className="mt-6 text-[clamp(1.625rem,4vw,2rem)] font-extrabold leading-tight tracking-[-0.03em] text-(--fg)">
-            Confirm it&apos;s you
+            {t(locale, "verify.title")}
           </h1>
           <p className="mt-3 text-base leading-7 text-(--secondary)">
-            {state.senderName} asked for a check before you open &ldquo;
-            {state.envelopeTitle}&rdquo;.
+            {t(locale, "verify.intro", {
+              sender: state.senderName,
+              title: state.envelopeTitle,
+            })}
             {state.required.length > 1
-              ? ` Step ${String(step)} of ${String(state.required.length)}.`
+              ? ` ${t(locale, "verify.step", {
+                  step,
+                  total: state.required.length,
+                })}`
               : ""}
           </p>
           <form className="mt-8 grid gap-5" onSubmit={handleSubmit}>
             {method === "account" ? (
               <FieldShell
                 autoComplete="username"
-                helper={`The address this document was sent to (${state.maskedEmail}).`}
-                label="Email address"
+                helper={t(locale, "verify.emailHelper", {
+                  email: state.maskedEmail,
+                })}
+                label={t(locale, "verify.emailAddress")}
                 name="signer-email"
                 onChange={(event) => setEmail(event.target.value)}
                 readOnly={false}
@@ -211,8 +222,8 @@ export function SignerVerificationScreen({
               autoComplete={
                 method === "account" ? "current-password" : "one-time-code"
               }
-              helper={copy.helper}
-              label={copy.label}
+              helper={t(locale, copy.helper)}
+              label={t(locale, copy.label)}
               name="signer-code"
               onChange={(event) => setCode(event.target.value)}
               readOnly={false}
@@ -238,7 +249,7 @@ export function SignerVerificationScreen({
                 loading={isChecking}
                 type="submit"
               >
-                Continue
+                {t(locale, "verify.continue")}
               </ShellButton>
               {method === "email_code" ? (
                 <ShellButton
@@ -248,17 +259,17 @@ export function SignerVerificationScreen({
                   variant="secondary"
                 >
                   {!notice
-                    ? "Email me a code"
+                    ? t(locale, "verify.emailMeCode")
                     : resendWait > 0
-                      ? `Send a new code in ${String(resendWait)}s`
-                      : "Send a new code"}
+                      ? t(locale, "verify.resendWait", { seconds: resendWait })
+                      : t(locale, "verify.sendNewCode")}
                 </ShellButton>
               ) : null}
             </div>
           </form>
         </section>
       </main>
-      <PublicLegalFooter />
+      <PublicLegalFooter locale={locale} />
     </div>
   );
 }

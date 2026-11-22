@@ -315,7 +315,10 @@ async function addSignatureField(envelopeId: string, signerId: string) {
 function consent(token: string) {
   return recordSignerConsent(
     token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
 }
@@ -853,6 +856,7 @@ test("the certificate credits consent recorded after a signer correction", async
       envelopeId,
       event: "consented",
       metadata: {
+        language: "en",
         disclosureVersion: "old-version",
         signerId: signer.signerId,
         signerName: "Riley Recipient",
@@ -953,7 +957,10 @@ test("an in-flight consent on the old link cannot finish after a correction", as
   await assert.rejects(
     recordSignerConsent(
       signer.token!,
-      { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+      {
+        language: "en",
+        disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+      },
       { database: pool },
     ),
     (error: unknown) => {
@@ -1346,6 +1353,7 @@ test("a failed invitation restores consent and keeps it on the certificate", asy
       envelopeId,
       event: "consented",
       metadata: {
+        language: "en",
         disclosureVersion: "kept-version",
         signerId: signer.signerId,
         signerName: "Riley Recipient",

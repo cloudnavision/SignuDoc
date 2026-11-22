@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SignerLocale } from "../i18n.ts";
 
 import {
   getDb,
@@ -19,6 +20,7 @@ const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
 export type ApiSigner = {
+  language: SignerLocale | null;
   declinedAt: string | null;
   declineReason: string | null;
   email: string;
@@ -80,6 +82,7 @@ type EnvelopeRow = {
 };
 
 type SignerRow = {
+  language: SignerLocale | null;
   apiRef: string | null;
   declinedAt: number | null;
   declineReason: string | null;
@@ -129,6 +132,7 @@ async function readSigners(
       SELECT
         s.id,
         s.envelope_id AS "envelopeId",
+        s.language,
         s.name,
         s.email,
         s.role,
@@ -209,6 +213,7 @@ export function toApiEnvelope(
         email: signer.email,
         id: signer.id,
         name: signer.name,
+        language: signer.language,
         order: signer.signOrder,
         ref: signer.apiRef,
         signedAt: isoTime(signer.signedAt),

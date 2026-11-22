@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { useBranding } from "@/components/layout/branding-provider";
 import { SIGNUDOC_NAME, SIGNUDOC_URL } from "@/lib/branding";
+import { t, type SignerLocale } from "@/lib/i18n";
 import { PUBLIC_COPYRIGHT_YEAR, publicFooterLinks } from "@/lib/legal";
 import { cn } from "@/lib/cn";
 import { PERMITTED_USE_PATH } from "@/lib/permitted-uses";
@@ -12,6 +13,8 @@ type PublicLegalFooterProps = {
   className?: string;
   contentClassName?: string;
   labelVariant?: "long" | "short";
+  /** The signer's language, on pages a signer sees; English elsewhere. */
+  locale?: SignerLocale;
   linkClassName?: string;
 };
 
@@ -26,6 +29,7 @@ export function PublicLegalFooter({
   contentClassName = "",
   labelVariant = "short",
   linkClassName,
+  locale = "en",
 }: PublicLegalFooterProps) {
   const branding = useBranding();
   const resolvedLinkClassName =
@@ -45,7 +49,10 @@ export function PublicLegalFooter({
               {
                 external: true,
                 href: branding.termsUrl,
-                label: labelVariant === "long" ? "Terms of Service" : "Terms",
+                label: t(
+                  locale,
+                  labelVariant === "long" ? "footer.termsLong" : "footer.terms",
+                ),
               },
             ]
           : []),
@@ -55,12 +62,23 @@ export function PublicLegalFooter({
           ? {
               external: true,
               href: branding.privacyUrl,
-              label: labelVariant === "long" ? "Privacy Policy" : "Privacy",
+              label: t(
+                locale,
+                labelVariant === "long"
+                  ? "footer.privacyLong"
+                  : "footer.privacy",
+              ),
             }
           : {
               external: false,
-              href: "/signer-privacy",
-              label: labelVariant === "long" ? "Privacy notice" : "Privacy",
+              href:
+                locale === "en"
+                  ? "/signer-privacy"
+                  : `/signer-privacy?language=${locale}`,
+              label:
+                labelVariant === "long"
+                  ? t(locale, "footer.privacyNotice")
+                  : t(locale, "footer.privacy"),
             },
       ];
 
@@ -68,11 +86,14 @@ export function PublicLegalFooter({
   links.push({
     external: false,
     href: PERMITTED_USE_PATH,
-    label: labelVariant === "long" ? "What this is for" : "E-signatures",
+    label: t(
+      locale,
+      labelVariant === "long" ? "footer.eSignaturesLong" : "footer.eSignatures",
+    ),
   });
 
   return (
-    <footer className={cn("relative z-10", className)}>
+    <footer lang={locale} className={cn("relative z-10", className)}>
       <div className={cn("page-width py-7", contentClassName)}>
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-[0.8125rem] text-(--tertiary)">
@@ -115,7 +136,7 @@ export function PublicLegalFooter({
               rel="noreferrer"
               target="_blank"
             >
-              Powered by {SIGNUDOC_NAME}
+              {t(locale, "footer.poweredBy", { name: SIGNUDOC_NAME })}
             </a>
           )}
         </div>

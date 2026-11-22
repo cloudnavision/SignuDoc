@@ -128,6 +128,33 @@ test("a neutral install with no links does not need to know its own URL", () => 
   assert.doesNotThrow(() => withUserEmailLegalFooter(body, neutral, {}));
 });
 
+test("a Spanish signer gets the footer in Spanish", () => {
+  const result = withUserEmailLegalFooter(
+    { ...body, locale: "es" },
+    { ...neutral, supportAddress: "ayuda@acme.com" },
+    env,
+  );
+
+  assert.equal(
+    result.textBody,
+    [
+      "Hello",
+      "",
+      "Aviso de privacidad:",
+      "https://sign.acme.com/signer-privacy?language=es",
+      "",
+      "¿Preguntas? Escriba a ayuda@acme.com.",
+      "",
+      "Enviado por Acme Corp con SignuDoc.",
+    ].join("\n"),
+  );
+  assert.match(
+    result.htmlBody,
+    /<a href="mailto:ayuda@acme\.com">ayuda@acme\.com<\/a>/,
+  );
+  assert.match(result.htmlBody, /Enviado por Acme Corp con SignuDoc\./);
+});
+
 test("an install with a logo puts it at the top of the HTML part only", () => {
   const result = withUserEmailLegalFooter(
     body,
@@ -156,4 +183,28 @@ test("without the site's address there is nowhere to fetch a logo from", () => {
   );
 
   assert.doesNotMatch(result.htmlBody, /<img/);
+});
+
+test("signer email documents declare their language with and without a footer", () => {
+  for (const locale of ["en", "es"] as const) {
+    for (const branding of [
+      neutral,
+      HOSTED_BRANDING,
+      { ...neutral, hosted: true },
+    ]) {
+      const result = withUserEmailLegalFooter(
+        { ...body, locale },
+        branding,
+        env,
+      );
+      assert.match(
+        result.htmlBody,
+        new RegExp(`^<!doctype html><html lang="${locale}">`),
+      );
+      assert.match(
+        result.htmlBody,
+        /<body>[\s\S]*<p>Hello<\/p>[\s\S]*<\/body><\/html>$/,
+      );
+    }
+  }
 });

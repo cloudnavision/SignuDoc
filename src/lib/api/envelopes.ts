@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SIGNER_LANGUAGES } from "../i18n.ts";
 
 import { getDb, type DbExecutor, type DbPool } from "../db/connection.ts";
 import {
@@ -68,6 +69,7 @@ const metadataSchema = z
   );
 
 export const apiSendOptionsSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES).optional(),
   delivery: z.enum(["email", "embedded"]).optional(),
   expiresInDays: deadlineDaysSchema.optional(),
   permittedUseConfirmed: z.literal(true, {
@@ -79,6 +81,7 @@ export const apiSendOptionsSchema = z.object({
 });
 
 const apiSignerSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES).optional(),
   accessCode: z.string().trim().min(4).max(64).optional(),
   email: emailSchema,
   name: nameSchema,
@@ -187,6 +190,7 @@ export async function sendEnvelopeForApi(
       reminderIntervalDays: options.reminderIntervalDays,
       senderEmail: actor.email,
       senderName: actor.name.trim() ? actor.name : actor.email,
+      language: options.language,
       signatureLevel: options.signatureLevel,
       userAgent: actor.userAgent,
     },
@@ -234,6 +238,7 @@ export async function createEnvelopeForApi(
         copyRecipients: input.copyRecipients ?? [],
         signers: input.signers.map((signer, index) => ({
           accessCode: signer.accessCode,
+          language: signer.language,
           email: signer.email,
           name: signer.name,
           requireEmailCode: signer.requireEmailCode,

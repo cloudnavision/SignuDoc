@@ -145,7 +145,10 @@ async function createSignableEnvelope() {
   );
   await recordSignerConsent(
     link.token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
 

@@ -1,25 +1,27 @@
 import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
-
-const fallbackEnvelopeTitle = "this document";
+import { type SignerLocale, t } from "@/lib/i18n";
 
 type SigningDoneShellProps = {
   /** Shown inside another app's page, which carries on from here. */
   embedded?: boolean;
   envelopeTitle?: string | null;
+  /** The language the organization chose for its signers. */
+  locale?: SignerLocale;
 };
 
 export function SigningDoneShell({
   embedded = false,
   envelopeTitle,
+  locale = "en",
 }: SigningDoneShellProps) {
   const resolvedEnvelopeTitle =
     envelopeTitle && envelopeTitle.trim().length > 0
       ? envelopeTitle.trim()
-      : fallbackEnvelopeTitle;
+      : t(locale, "done.fallbackTitle");
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div lang={locale} className="flex min-h-screen flex-col">
       <header>
         <div className="page-width flex items-center py-4">
           <Brand href="/" />
@@ -52,28 +54,23 @@ export function SigningDoneShell({
           </div>
 
           <h1 className="mt-7 text-[clamp(1.875rem,4.5vw,2.375rem)] font-extrabold tracking-[-0.035em] text-(--fg)">
-            You&apos;re all done.
+            {t(locale, "done.title")}
           </h1>
           <p className="mx-auto mt-4 max-w-[480px] text-base leading-7 text-(--secondary)">
-            Your signature has been recorded for{" "}
-            <span className="font-bold text-(--fg)">
-              &quot;{resolvedEnvelopeTitle}&quot;
-            </span>
-            .
+            {t(locale, "done.recorded", { title: resolvedEnvelopeTitle })}
           </p>
           <p className="mx-auto mt-3 max-w-[480px] text-base leading-7 text-(--secondary)">
-            You&apos;ll receive an email with the signed document once all
-            parties have signed.
+            {t(locale, "done.emailComing")}
           </p>
           {embedded ? null : (
             <p className="mt-8 inline-flex rounded-full bg-(--surface) px-4 py-2 text-sm font-semibold text-(--secondary)">
-              You can close this tab.
+              {t(locale, "done.closeTab")}
             </p>
           )}
         </section>
       </main>
 
-      <PublicLegalFooter />
+      <PublicLegalFooter locale={locale} />
     </div>
   );
 }

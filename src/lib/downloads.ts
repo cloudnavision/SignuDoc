@@ -65,6 +65,7 @@ type RecipientDownloadTokenRow = {
 };
 
 type SignerRow = {
+  language: import("./i18n.ts").SignerLocale | null;
   createdAt: number;
   declineReason: string | null;
   declinedAt: number | null;
@@ -154,6 +155,7 @@ function mapSignerRow(row: SignerRow): SignerRecord {
     id: row.id,
     lastNotifiedAt: row.lastNotifiedAt,
     lastNudgedAt: row.lastNudgedAt,
+    language: row.language,
     name: row.name,
     signOrder: row.signOrder,
     signingStep: row.signingStep ?? null,
@@ -203,6 +205,7 @@ async function getEnvelopeById(
         user_id AS "userId",
         title,
         status,
+        language,
         source_pdf_key AS "sourcePdfKey",
         source_pdf_filename AS "sourcePdfFilename",
         source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -241,6 +244,7 @@ async function getEnvelopeByIdForUser(
         user_id AS "userId",
         title,
         status,
+        language,
         source_pdf_key AS "sourcePdfKey",
         source_pdf_filename AS "sourcePdfFilename",
         source_pdf_size_bytes AS "sourcePdfSizeBytes",
@@ -301,6 +305,7 @@ async function getSignerForEnvelope(
         envelope_id AS "envelopeId",
         name,
         email,
+        language,
         sign_order AS "signOrder",
         signing_step AS "signingStep",
         status,
@@ -336,6 +341,7 @@ async function listSignersForEnvelope(
         envelope_id AS "envelopeId",
         name,
         email,
+        language,
         sign_order AS "signOrder",
         status,
         signing_token_hash AS "signingTokenHash",
@@ -834,6 +840,22 @@ export async function getPublicEnvelopeDownloadForToken(
   return buildCertificateDownload(envelope, database, storageService, {
     redactForRecipients: true,
   });
+}
+
+/** Resolve even an expired token without granting access to the document. */
+export async function getDownloadLanguageForToken(
+  token: string,
+  database: DbExecutor = getDb(),
+): Promise<import("./i18n.ts").SignerLocale> {
+  const row = await getRecipientDownloadTokenByHash(
+    hashOpaqueToken(token),
+    database,
+  );
+  if (!row) return "en";
+  return (
+    (await getSignerForEnvelope(row.signerId, row.envelopeId, database))
+      ?.language ?? "en"
+  );
 }
 
 export type RenewedDownloadLinks = {

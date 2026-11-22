@@ -5,11 +5,13 @@ import { useEffect, useRef } from "react";
 
 import { Brand } from "@/components/layout/brand";
 import { PublicLegalFooter } from "@/components/layout/public-legal-links";
+import type { SignerLocale } from "@/lib/i18n";
 
 /** A signing link's end state: a heading and one line, with no document. */
 export function SigningStateScreen({
   description,
   focusHeading = false,
+  locale = "en",
   title,
 }: {
   description: string;
@@ -19,6 +21,7 @@ export function SigningStateScreen({
    * the outcome out.
    */
   focusHeading?: boolean;
+  locale?: SignerLocale;
   title: string;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -30,7 +33,7 @@ export function SigningStateScreen({
   }, [focusHeading]);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div lang={locale} className="flex min-h-screen flex-col">
       <header>
         <div className="page-width flex items-center py-4">
           <Brand href="/" />
@@ -59,7 +62,7 @@ export function SigningStateScreen({
           </p>
         </section>
       </main>
-      <PublicLegalFooter />
+      <PublicLegalFooter locale={locale} />
     </div>
   );
 }

@@ -103,3 +103,17 @@ test("a read that finishes after a save commits does not cache what it read befo
 
   assert.equal((await getSettings()).requireTwoFactor, true);
 });
+
+test("concurrent English and translated disclosure saves retain both languages", async () => {
+  await saveSettings({
+    consentDisclosure: "Old English.",
+    consentDisclosureTranslations: { es: "Texto anterior." },
+  });
+  await Promise.all([
+    saveSettings({ consentDisclosure: "New English." }),
+    saveSettings({ consentDisclosureTranslations: { es: "Texto nuevo." } }),
+  ]);
+  const settings = await getSettings();
+  assert.equal(settings.consentDisclosure, "New English.");
+  assert.equal(settings.consentDisclosureTranslations?.es, "Texto nuevo.");
+});

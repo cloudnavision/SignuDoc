@@ -133,7 +133,10 @@ test("an answer too long for its box is refused, one that wraps to fit is taken"
   );
   await recordSignerConsent(
     link.token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
 
@@ -282,7 +285,10 @@ test("a dropdown choice wider than its box is taken, since the signer cannot sho
   );
   await recordSignerConsent(
     link.token,
-    { disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION },
+    {
+      language: "en",
+      disclosureVersion: ELECTRONIC_RECORDS_DISCLOSURE_VERSION,
+    },
     { database },
   );
 

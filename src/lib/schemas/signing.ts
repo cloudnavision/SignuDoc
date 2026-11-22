@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { SIGNER_LANGUAGES } from "../i18n.ts";
 import { signatureMeanings } from "../types/domain.ts";
 import { envelopePageSchema } from "./envelope.ts";
 import { fieldInputMethodSchema, fieldTypeSchema } from "./field.ts";
@@ -53,6 +54,7 @@ export const signingVisibleFieldSchema = signingFieldBaseSchema.extend({
 });
 
 export const signingDisclosureSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES).optional(),
   sections: z.array(
     z.object({
       // Empty when the section is a plain paragraph with no heading.
@@ -75,6 +77,11 @@ export const signingPayloadSchema = z.object({
   documentUrl: z.string().trim().min(1),
   envelopeId: idSchema,
   envelopeTitle: envelopeTitleSchema,
+  /**
+   * The organization's signer language, so anything that renders this
+   * payload knows which dictionary to use. See i18n.ts.
+   */
+  locale: z.enum(SIGNER_LANGUAGES).optional(),
   pageCount: z.number().int().positive(),
   pages: z.array(envelopePageSchema),
   /**
@@ -161,6 +168,7 @@ export const signingFieldFitRequestSchema = z.object({
 });
 
 export const signerConsentRequestSchema = z.object({
+  language: z.enum(SIGNER_LANGUAGES),
   disclosureVersion: z.string().trim().min(1).max(40),
 });
 

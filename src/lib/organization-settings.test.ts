@@ -26,6 +26,7 @@ const stored: AppSettings = {
   retentionDays: null,
   senderAddress: "sign@acme.com",
   setupCompletedAt: 1_800_000_000,
+  signerLanguage: "en",
   signupMode: "domains",
   supportAddress: "help@acme.com",
   termsUrl: null,
@@ -443,4 +444,41 @@ test("a change to the disclosure is listed in the audit trail", () => {
   assert.deepEqual(changes, {
     consentDisclosure: { from: null, to: "Custom words." },
   });
+});
+
+test("a disclosure translation needs acknowledgement and does not replace English", async () => {
+  const current = resolveSettings(
+    { ...stored, consentDisclosure: "English legal words." },
+    {},
+  );
+  const row = { ...storedRow, consent_disclosure: current.consentDisclosure };
+  const input = {
+    ...form,
+    consentDisclosureLanguage: "es",
+    consentDisclosure: "Palabras del administrador.",
+  };
+  await assert.rejects(
+    updateOrganizationSettings(input, current, fakeDatabase(row).database),
+    OrganizationSettingsError,
+  );
+  const result = await updateOrganizationSettings(
+    { ...input, consentDisclosureAcknowledged: true },
+    current,
+    fakeDatabase(row).database,
+  );
+  assert.equal(result.consentDisclosure, "English legal words.");
+  assert.equal(
+    result.consentDisclosureTranslations?.es,
+    input.consentDisclosure,
+  );
+  const hosted = resolveSettings(result, { HOSTED_MODE: "1" });
+  assert.deepEqual(hosted.consentDisclosureTranslations, {});
+  await assert.rejects(
+    updateOrganizationSettings(
+      { ...input, consentDisclosureLanguage: "cs" },
+      current,
+      fakeDatabase(row).database,
+    ),
+    OrganizationSettingsError,
+  );
 });
